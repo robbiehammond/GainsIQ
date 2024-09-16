@@ -12,6 +12,7 @@ from aws_cdk import (
     aws_iam as iam
 )
 from constructs import Construct
+from aws_cdk.aws_apigateway import Cors
 
 class GainsIQStack(Stack):
 
@@ -28,27 +29,56 @@ class GainsIQStack(Stack):
                           sources=[s3deploy.Source.asset("./frontend/build")],
                           destination_bucket=bucket)
 
-        # DynamoDB Table for GainsIQ workout data
-        table = dynamodb.Table(self, "GainsIQWorkoutData",
-                               partition_key=dynamodb.Attribute(
-                                   name="userId", type=dynamodb.AttributeType.STRING),
-                               sort_key=dynamodb.Attribute(
-                                   name="timestamp", type=dynamodb.AttributeType.NUMBER),
-                               billing_mode=dynamodb.BillingMode.PAY_PER_REQUEST)
+        # DynamoDB table for storing exercises
+        exercises_table = dynamodb.Table(self, "ExercisesTable",
+                                         partition_key=dynamodb.Attribute(
+                                             name="exerciseName", type=dynamodb.AttributeType.STRING),
+                                         billing_mode=dynamodb.BillingMode.PAY_PER_REQUEST)
+
+        # DynamoDB table for logging sets 
+        sets_table = dynamodb.Table(self, "SetsTable",
+                                        partition_key=dynamodb.Attribute(
+                                            name="workoutId", type=dynamodb.AttributeType.STRING),
+                                        sort_key=dynamodb.Attribute(
+                                            name="timestamp", type=dynamodb.AttributeType.NUMBER),
+                                        billing_mode=dynamodb.BillingMode.PAY_PER_REQUEST)
+        
+        # Create an IAM Role with extremely permissive policies
+        lambda_role = iam.Role(self, "GainsIQLambdaRole",
+                               assumed_by=iam.ServicePrincipal("lambda.amazonaws.com"),
+                               managed_policies=[
+                                   iam.ManagedPolicy.from_aws_managed_policy_name("service-role/AWSLambdaBasicExecutionRole")
+                               ])
+
+        # Add extremely permissive policy (for testing)
+        lambda_role.add_to_policy(iam.PolicyStatement(
+            effect=iam.Effect.ALLOW,
+            actions=["*"],  # Allow all actions
+            resources=["*"]  # Allow on all resources
+        ))
 
         backend_lambda = _lambda.Function(self, "GainsIQBackendHandler",
                                   runtime=_lambda.Runtime.PYTHON_3_8,
                                   handler="backend.main",
-                                  code=_lambda.Code.from_asset("lambda"))
-        
+                                  code=_lambda.Code.from_asset("lambda"),
+                                  role=lambda_role,  # Use the permissive role
+                                  environment={
+                                      'EXERCISES_TABLE': exercises_table.table_name,
+                                      'SETS_TABLE': sets_table.table_name
+                                  })
 
-        # API Gateway for exposing Lambda for GainsIQ
+        # Inside your CDK stack where API Gateway is defined:
         api = apigateway.RestApi(self, "GainsIQAPI",
-                                 rest_api_name="GainsIQ API",
-                                 description="API for GainsIQ workout tracker.")
+                         rest_api_name="GainsIQ API",
+                         description="API for GainsIQ workout tracker.",
+                         default_cors_preflight_options={
+                             "allow_origins": Cors.ALL_ORIGINS,  # This allows all origins
+                             "allow_methods": Cors.ALL_METHODS   # This allows all methods (GET, POST, etc.)
+                         })
 
         workouts = api.root.add_resource("workouts")
-        workouts.add_method("POST", apigateway.LambdaIntegration(backend_lambda))
+        workouts.add_method("POST", apigateway.LambdaIntegration(backend_lambda, proxy=True))
+        workouts.add_method("GET", apigateway.LambdaIntegration(backend_lambda, proxy=True))
 
         # Use aws_iam.Role for SageMaker Role
         sagemaker_role = iam.Role(self, "SageMakerRole",

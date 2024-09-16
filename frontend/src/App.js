@@ -1,11 +1,10 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import axios from 'axios';  // For making HTTP requests
 
 const WorkoutTracker = () => {
-  // Predefined list of exercises
-  const initialExercises = ['Bench Press', 'Squat', 'Deadlift', 'Overhead Press', 'Pull-up', 'Dip', 'Row', 'Curl'];
+  const apiUrl = 'https://57gpuk0gme.execute-api.us-west-2.amazonaws.com/prod'
 
-  // State to manage form inputs
-  const [exercises, setExercises] = useState(initialExercises);
+  const [exercises, setExercises] = useState([]);  // Start with an empty list
   const [searchTerm, setSearchTerm] = useState('');
   const [newExercise, setNewExercise] = useState(''); // To handle new exercise input
   const [selectedExercise, setSelectedExercise] = useState('');
@@ -15,8 +14,23 @@ const WorkoutTracker = () => {
   const [unit, setUnit] = useState('lbs'); // To handle the unit selection (default to lbs)
   const [confirmationMessage, setConfirmationMessage] = useState(''); // To show feedback
 
-  // Filtered exercises based on search term
-  const filteredExercises = exercises.filter(exercise =>
+  useEffect(() => {
+    const fetchExercises = async () => {
+      try {
+        const response = await axios.get(`${apiUrl}/workouts`);
+        // Parse the body to get the actual array of exercises
+        const exercisesData = JSON.parse(response.data.body);  // Parse the JSON string in response.data.body
+        setExercises(exercisesData || []);  // Safely handle if exercisesData is empty
+      } catch (error) {
+        console.error('Error fetching exercises:', error);
+        setExercises([]);  // Fallback to empty array in case of error
+      }
+    };
+  
+    fetchExercises();  // Trigger the fetch on component mount
+  }, [apiUrl]);
+  // Filtered exercises based on search term, ensuring exercises is always an array
+  const filteredExercises = (Array.isArray(exercises) ? exercises : []).filter(exercise =>
     exercise.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
@@ -28,11 +42,11 @@ const WorkoutTracker = () => {
     return weight;
   };
 
-  // Handle form submission (e.g., log workout data)
-  const handleSubmit = (e) => {
+  // Handle form submission (log workout set)
+  const handleSubmit = async (e) => {
     e.preventDefault();
-
     const convertedWeight = convertToPounds(parseFloat(weight), unit);
+
     const workoutData = {
       exercise: selectedExercise,
       reps: reps,
@@ -40,26 +54,40 @@ const WorkoutTracker = () => {
       weight: convertedWeight
     };
 
-    console.log(workoutData);
+    try {
+      // Send POST request to the backend API
+      const response = await axios.post(`${apiUrl}/workouts`, workoutData);
+      console.log(response.data);
 
-    // Set a confirmation message with the workout data
-    setConfirmationMessage(`You logged ${sets} set(s) of ${reps} rep(s) for ${selectedExercise} with ${convertedWeight.toFixed(2)} lbs.`);
+      // Set confirmation message
+      setConfirmationMessage(`You logged ${sets} set(s) of ${reps} rep(s) for ${selectedExercise} with ${convertedWeight.toFixed(2)} lbs.`);
 
-    // Reset the form inputs
-    setSelectedExercise('');
-    setReps('');
-    setSets('');
-    setWeight('');
-    setUnit('lbs'); // Reset the unit to default
-
-    // You can add code here to send the workoutData to your backend API
+      // Reset form inputs
+      setSelectedExercise('');
+      setReps('');
+      setSets('');
+      setWeight('');
+      setUnit('lbs');
+    } catch (error) {
+      console.error('Error logging workout:', error);
+    }
   };
 
-  // Handle adding a new exercise
-  const handleAddExercise = () => {
-    if (newExercise && !exercises.includes(newExercise)) {
-      setExercises([...exercises, newExercise]);
-      setNewExercise(''); // Reset new exercise input
+  const handleAddExercise = async () => {
+    console.log('Current exercises:', exercises);
+    // Ensure exercises is an array before checking if it includes newExercise
+    if (newExercise && Array.isArray(exercises) && !exercises.includes(newExercise)) {
+      try {
+        // Send POST request to add the new exercise to the backend
+        const response = await axios.post(`${apiUrl}/workouts`, { exerciseName: newExercise });
+        console.log(response.data);
+  
+        // Add the new exercise to the frontend list (temporarily until backend updates)
+        setExercises([...exercises, newExercise]);
+        setNewExercise('');
+      } catch (error) {
+        console.error('Error adding exercise:', error);
+      }
     } else {
       alert('Exercise already exists or is invalid');
     }
@@ -91,11 +119,15 @@ const WorkoutTracker = () => {
             required
           >
             <option value="">--Select an Exercise--</option>
-            {filteredExercises.map((exercise, index) => (
-              <option key={index} value={exercise}>
-                {exercise}
-              </option>
-            ))}
+            {filteredExercises.length > 0 ? (
+              filteredExercises.map((exercise, index) => (
+                <option key={index} value={exercise}>
+                  {exercise}
+                </option>
+              ))
+            ) : (
+              <option disabled>No exercises found</option>
+            )}
           </select>
         </div>
 
