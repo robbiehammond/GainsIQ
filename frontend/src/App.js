@@ -29,6 +29,7 @@ const WorkoutTracker = () => {
   
     fetchExercises();  // Trigger the fetch on component mount
   }, [apiUrl]);
+
   // Filtered exercises based on search term, ensuring exercises is always an array
   const filteredExercises = (Array.isArray(exercises) ? exercises : []).filter(exercise =>
     exercise.toLowerCase().includes(searchTerm.toLowerCase())
@@ -48,7 +49,7 @@ const WorkoutTracker = () => {
     const convertedWeight = convertToPounds(parseFloat(weight), unit);
 
     const workoutData = {
-      exercise: selectedExercise,
+      exercise: selectedExercise,  // Ensure selected exercise is sent, not what's typed in the search
       reps: reps,
       sets: sets,
       weight: convertedWeight
@@ -106,7 +107,7 @@ const WorkoutTracker = () => {
             placeholder="Search for exercises..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            required
+            // Removed 'required' so search field can be left blank
           />
         </div>
 
@@ -116,7 +117,7 @@ const WorkoutTracker = () => {
           <select
             value={selectedExercise}
             onChange={(e) => setSelectedExercise(e.target.value)}
-            required
+            required  // Ensure the dropdown selection is required
           >
             <option value="">--Select an Exercise--</option>
             {filteredExercises.length > 0 ? (

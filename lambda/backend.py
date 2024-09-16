@@ -3,6 +3,7 @@ import json
 import boto3
 import uuid
 from datetime import datetime
+from decimal import Decimal
 
 # Initialize DynamoDB resource
 dynamodb = boto3.resource('dynamodb')
@@ -82,7 +83,9 @@ def log_set(body):
     exercise = body['exercise']
     reps = body['reps']
     sets = body['sets']
-    weight = body['weight']
+    
+    # Convert weight to Decimal to avoid the float issue
+    weight = Decimal(str(body['weight']))
 
     # Add the set to the DynamoDB table
     sets_table.put_item(
@@ -92,7 +95,7 @@ def log_set(body):
             'exercise': exercise,
             'reps': reps,
             'sets': sets,
-            'weight': weight
+            'weight': weight  # Ensure weight is stored as Decimal
         }
     )
 
