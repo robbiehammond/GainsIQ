@@ -3,11 +3,11 @@ import os
 
 import aws_cdk as cdk
 
-from gains_iq.gains_iq_stack import GainsIqStack
+from gains_iq.gains_iq_stack import GainsIQStack
 
-
+# Website can be accessed at https://gainsiqstack-gainsiqfrontend72ec0737-z2yh2xrqoyrc.s3.us-west-2.amazonaws.com/index.html
 app = cdk.App()
-GainsIqStack(app, "GainsIqStack",
+GainsIQStack(app, "GainsIqStack"
     # If you don't specify 'env', this stack will be environment-agnostic.
     # Account/Region-dependent features and context lookups will not work,
     # but a single synthesized template can be deployed anywhere.
