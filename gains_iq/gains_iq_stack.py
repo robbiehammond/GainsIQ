@@ -4,13 +4,15 @@ from aws_cdk import (
     aws_lambda as _lambda,
     aws_apigateway as apigateway,
     aws_dynamodb as dynamodb,
-    aws_sagemaker as sagemaker,
     aws_s3_deployment as s3deploy,
-    aws_ses as ses,
+    aws_sns as sns,
+    aws_sns_subscriptions as subs,
     aws_events as events,
     aws_events_targets as targets,
-    aws_iam as iam
+    aws_iam as iam,
+    Duration
 )
+import os
 from constructs import Construct
 from aws_cdk.aws_apigateway import Cors
 
@@ -18,6 +20,16 @@ class GainsIQStack(Stack):
 
     def __init__(self, scope: Construct, id: str, **kwargs) -> None:
         super().__init__(scope, id, **kwargs)
+
+        # Path to the file containing the OpenAI API key
+        openai_key_file = './openai_key.txt'
+        
+        # Check if the file exists and read the OpenAI API key
+        if not os.path.exists(openai_key_file):
+            raise FileNotFoundError(f"{openai_key_file} does not exist. Please make sure the file exists.")
+        
+        with open(openai_key_file, 'r') as f:
+            openai_api_key = f.read().strip()
 
         # S3 bucket for GainsIQ frontend
         frontend_bucket = s3.Bucket(self, "GainsIQFrontend",
@@ -72,26 +84,11 @@ class GainsIQStack(Stack):
         # Grant permissions for Lambda to interact with S3
         data_bucket.grant_read_write(lambda_role)
 
-        # Use IAM Role for SageMaker
-        sagemaker_role = iam.Role(self, "SageMakerRole",
-                                  assumed_by=iam.ServicePrincipal("sagemaker.amazonaws.com"),
-                                  managed_policies=[
-                                      iam.ManagedPolicy.from_aws_managed_policy_name("AmazonSageMakerFullAccess")
-                                  ])
+        # Create an SNS topic for sending notifications
+        notification_topic = sns.Topic(self, "GainsIQNotifications")
 
-        # Add iam:PassRole permission so Lambda can pass the **SageMaker role** to SageMaker
-        lambda_role.add_to_policy(iam.PolicyStatement(
-            effect=iam.Effect.ALLOW,
-            actions=["iam:PassRole"],
-            resources=[sagemaker_role.role_arn]  # Reference SageMaker role here, after it's defined
-        ))
-
-        # Add policy for SageMaker actions
-        lambda_role.add_to_policy(iam.PolicyStatement(
-            effect=iam.Effect.ALLOW,
-            actions=["sagemaker:CreateProcessingJob"],
-            resources=["*"]
-        ))
+        # Subscribe your email to the SNS topic
+        notification_topic.add_subscription(subs.EmailSubscription("robbiehammond3@gmail.com"))
 
         # Backend Lambda function for the workout tracker API
         backend_lambda = _lambda.Function(self, "GainsIQBackendHandler",
@@ -104,26 +101,23 @@ class GainsIQStack(Stack):
                                               'SETS_TABLE': sets_table.table_name
                                           })
 
-        # Create the SageMaker model (Placeholder for future processing jobs)
-        model = sagemaker.CfnModel(self, "GainsIQSageMakerModel",
-                                   execution_role_arn=sagemaker_role.role_arn,
-                                   primary_container=sagemaker.CfnModel.ContainerDefinitionProperty(
-                                       image="174872318107.dkr.ecr.us-west-2.amazonaws.com/linear-learner:latest",
-                                   ))
-
-        # Processing Lambda function to handle monthly workout analysis and trigger SageMaker
+        # Processing Lambda function to handle monthly workout analysis and send to OpenAI API
         processing_lambda = _lambda.Function(self, "GainsIQProcessingLambda",
                                              runtime=_lambda.Runtime.PYTHON_3_8,
                                              handler="processing_lambda.lambda_handler",
                                              code=_lambda.Code.from_asset("lambda"),
                                              role=lambda_role,
+                                             timeout=Duration.minutes(5),
                                              environment={
                                                  'SETS_TABLE': sets_table.table_name,
                                                  'EXERCISES_TABLE': exercises_table.table_name,
                                                  'S3_BUCKET_NAME': data_bucket.bucket_name,
-                                                 'SAGEMAKER_MODEL_NAME': model.attr_model_name,  # Set SageMaker model name
-                                                 'SAGEMAKER_ROLE_ARN': sagemaker_role.role_arn  # Correct SageMaker role ARN
+                                                 'OPENAI_API_KEY': openai_api_key,  # Pass the API key as an environment variable
+                                                 'SNS_TOPIC_ARN': notification_topic.topic_arn  # Pass the SNS topic ARN to Lambda
                                              })
+
+        # Grant the processing Lambda permission to publish to the SNS topic
+        notification_topic.grant_publish(processing_lambda)
 
         # API Gateway for the workout tracker (Backend Lambda)
         api = apigateway.RestApi(self, "GainsIQAPI",
@@ -137,10 +131,6 @@ class GainsIQStack(Stack):
         workouts = api.root.add_resource("workouts")
         workouts.add_method("POST", apigateway.LambdaIntegration(backend_lambda, proxy=True))
         workouts.add_method("GET", apigateway.LambdaIntegration(backend_lambda, proxy=True))
-
-        # SES placeholder for email sending (to be integrated later)
-        ses_identity = ses.CfnEmailIdentity(self, "GainsIQSESIdentity",
-                                            email_identity="your-email@example.com")
 
         # EventBridge rule to trigger processing Lambda every month
         monthly_rule = events.Rule(self, "GainsIQMonthlyRule",
