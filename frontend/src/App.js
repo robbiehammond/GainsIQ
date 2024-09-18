@@ -156,7 +156,7 @@ const WorkoutTracker = () => {
         <div>
           <label>Sets: </label>
           <select value={sets} onChange={(e) => setSets(e.target.value)} required>
-            <option value="">--Select Sets--</option>
+            <option value="">--Select Set Number--</option>
             <option value="1">1</option>
             <option value="2">2</option>
             <option value="3">3</option>
