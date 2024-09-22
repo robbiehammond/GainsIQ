@@ -1,89 +1,122 @@
 import React, { useState, useEffect } from 'react';
-import axios from 'axios';  // For making HTTP requests
+import axios from 'axios';
+import {
+  Container,
+  Grid,
+  TextField,
+  MenuItem,
+  Button,
+  Snackbar,
+  Select,
+  InputLabel,
+  FormControl,
+  Typography,
+  Alert,
+  Paper,
+  Card,
+  CardContent,
+  ThemeProvider,
+  createTheme,
+  CardActions,
+} from '@mui/material';
+
+import { amber, teal, indigo } from '@mui/material/colors';
+
+// Create a custom theme with more colors
+const theme = createTheme({
+  palette: {
+    primary: {
+      main: indigo[500],
+    },
+    secondary: {
+      main: amber[500],
+    },
+    background: {
+      default: teal[50],
+    },
+  },
+  typography: {
+    h4: {
+      fontWeight: 'bold',
+      color: indigo[700],
+    },
+    h5: {
+      color: amber[800],
+    },
+  },
+});
 
 const WorkoutTracker = () => {
-  const apiUrl = 'https://57gpuk0gme.execute-api.us-west-2.amazonaws.com/prod'
+  const apiUrl = 'https://57gpuk0gme.execute-api.us-west-2.amazonaws.com/prod';
 
-  const [exercises, setExercises] = useState([]);  // Start with an empty list
+  const [exercises, setExercises] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
-  const [newExercise, setNewExercise] = useState(''); // To handle new exercise input
+  const [newExercise, setNewExercise] = useState('');
   const [selectedExercise, setSelectedExercise] = useState('');
   const [reps, setReps] = useState('');
   const [sets, setSets] = useState('');
-  const [weight, setWeight] = useState(''); // To handle the weight input
-  const [unit, setUnit] = useState('lbs'); // To handle the unit selection (default to lbs)
-  const [confirmationMessage, setConfirmationMessage] = useState(''); // To show feedback
+  const [weight, setWeight] = useState('');
+  const [unit, setUnit] = useState('lbs');
+  const [confirmationMessage, setConfirmationMessage] = useState('');
+  const [snackbarOpen, setSnackbarOpen] = useState(false);
 
   useEffect(() => {
     const fetchExercises = async () => {
       try {
         const response = await axios.get(`${apiUrl}/workouts`);
-        // Parse the body to get the actual array of exercises
-        const exercisesData = JSON.parse(response.data.body);  // Parse the JSON string in response.data.body
-        setExercises(exercisesData || []);  // Safely handle if exercisesData is empty
+        const exercisesData = JSON.parse(response.data.body);
+        setExercises(exercisesData || []);
       } catch (error) {
         console.error('Error fetching exercises:', error);
-        setExercises([]);  // Fallback to empty array in case of error
+        setExercises([]);
       }
     };
-  
-    fetchExercises();  // Trigger the fetch on component mount
+
+    fetchExercises();
   }, [apiUrl]);
 
-  // Filtered exercises based on search term, ensuring exercises is always an array
-  const filteredExercises = (Array.isArray(exercises) ? exercises : []).filter(exercise =>
+  const filteredExercises = exercises.filter(exercise =>
     exercise.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  // Convert kilograms to pounds if necessary
   const convertToPounds = (weight, unit) => {
-    if (unit === 'kg') {
-      return weight * 2.20462; // Conversion from kg to lbs
-    }
-    return weight;
+    return unit === 'kg' ? weight * 2.20462 : weight;
   };
 
-  // Handle form submission (log workout set)
   const handleSubmit = async (e) => {
     e.preventDefault();
     const convertedWeight = convertToPounds(parseFloat(weight), unit);
-
     const workoutData = {
-      exercise: selectedExercise,  // Ensure selected exercise is sent, not what's typed in the search
+      exercise: selectedExercise,
       reps: reps,
       sets: sets,
-      weight: convertedWeight
+      weight: convertedWeight,
     };
-
+  
     try {
-      // Send POST request to the backend API
       const response = await axios.post(`${apiUrl}/workouts`, workoutData);
       console.log(response.data);
-
-      // Set confirmation message
-      setConfirmationMessage(`You logged ${sets} set(s) of ${reps} rep(s) for ${selectedExercise} with ${convertedWeight.toFixed(2)} lbs.`);
-
-      // Reset form inputs
-      setSelectedExercise('');
+  
+      // Set detailed confirmation message with all data that was sent to the backend
+      setConfirmationMessage(
+        `Logged: ${sets} set(s) of ${reps} rep(s) for ${selectedExercise} with ${convertedWeight.toFixed(2)} ${unit}`
+      );
+      setSnackbarOpen(true);
+  
+      // Clear only reps and sets, keep the exercise, weight, and unit
       setReps('');
       setSets('');
-      setWeight('');
-      setUnit('lbs');
+      
     } catch (error) {
       console.error('Error logging workout:', error);
     }
   };
 
   const handleAddExercise = async () => {
-    console.log('Current exercises:', exercises);
-    // Ensure exercises is an array before checking if it includes newExercise
-    if (newExercise && Array.isArray(exercises) && !exercises.includes(newExercise)) {
+    if (newExercise && !exercises.includes(newExercise)) {
       try {
-        // Send POST request to add the new exercise to the backend
         const response = await axios.post(`${apiUrl}/workouts`, { exerciseName: newExercise });
         console.log(response.data);
-  
-        // Add the new exercise to the frontend list (temporarily until backend updates)
         setExercises([...exercises, newExercise]);
         setNewExercise('');
       } catch (error) {
@@ -95,121 +128,173 @@ const WorkoutTracker = () => {
   };
 
   return (
-    <div style={{ padding: '20px' }}>
-      <h2>Workout Tracker</h2>
+    <ThemeProvider theme={theme}>
+      <Container maxWidth="md" sx={{ padding: '40px 20px' }}>
+        <Paper elevation={3} sx={{ padding: '20px', backgroundColor: theme.palette.background.default }}>
+          <Typography variant="h4" align="center" gutterBottom>
+            Workout Tracker
+          </Typography>
 
-      <form onSubmit={handleSubmit}>
-        {/* Search bar to filter exercises */}
-        <div>
-          <label>Search Exercise: </label>
-          <input
-            type="text"
-            placeholder="Search for exercises..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            // Removed 'required' so search field can be left blank
-          />
-        </div>
+          <form onSubmit={handleSubmit}>
+            <Grid container spacing={3}>
+              {/* Search bar for exercises */}
+              <Grid item xs={12}>
+                <TextField
+                  fullWidth
+                  label="Search Exercise"
+                  variant="outlined"
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                />
+              </Grid>
 
-        {/* Display the filtered exercises and allow selection */}
-        <div>
-          <label>Select Exercise: </label>
-          <select
-            value={selectedExercise}
-            onChange={(e) => setSelectedExercise(e.target.value)}
-            required  // Ensure the dropdown selection is required
+              {/* Exercise selection dropdown */}
+              <Grid item xs={12}>
+                <FormControl fullWidth required>
+                  <InputLabel>Select Exercise</InputLabel>
+                  <Select
+                    value={selectedExercise}
+                    onChange={(e) => setSelectedExercise(e.target.value)}
+                    label="Select Exercise"
+                  >
+                    <MenuItem value="">-- Select an Exercise --</MenuItem>
+                    {filteredExercises.length > 0 ? (
+                      filteredExercises.map((exercise, index) => (
+                        <MenuItem key={index} value={exercise}>
+                          {exercise}
+                        </MenuItem>
+                      ))
+                    ) : (
+                      <MenuItem disabled>No exercises found</MenuItem>
+                    )}
+                  </Select>
+                </FormControl>
+              </Grid>
+
+              {/* Reps */}
+              <Grid item xs={12} sm={6}>
+                <FormControl fullWidth required>
+                  <InputLabel>Reps</InputLabel>
+                  <Select
+                    value={reps}
+                    onChange={(e) => setReps(e.target.value)}
+                    label="Reps"
+                  >
+                    <MenuItem value="">-- Select Reps --</MenuItem>
+                    <MenuItem value="5 or below">5 or below</MenuItem>
+                    {[...Array(12).keys()].map((n) => (
+                      <MenuItem key={n} value={n + 6}>
+                        {n + 6}
+                      </MenuItem>
+                    ))}
+                    <MenuItem value="16 or above">16 or above</MenuItem>
+                  </Select>
+                </FormControl>
+              </Grid>
+
+              {/* Sets */}
+              <Grid item xs={12} sm={6}>
+                <FormControl fullWidth required>
+                  <InputLabel>Set Number</InputLabel>
+                  <Select
+                    value={sets}
+                    onChange={(e) => setSets(e.target.value)}
+                    label="Sets"
+                  >
+                    <MenuItem value="">-- Select Set Number --</MenuItem>
+                    {[...Array(5).keys()].map((n) => (
+                      <MenuItem key={n} value={n + 1}>
+                        {n + 1}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+              </Grid>
+
+              {/* Weight */}
+              <Grid item xs={12} sm={6}>
+                <TextField
+                  fullWidth
+                  label="Weight"
+                  type="number"
+                  value={weight}
+                  onChange={(e) => setWeight(e.target.value)}
+                  required
+                />
+              </Grid>
+
+              {/* Unit */}
+              <Grid item xs={12} sm={6}>
+                <FormControl fullWidth required>
+                  <InputLabel>Unit</InputLabel>
+                  <Select
+                    value={unit}
+                    onChange={(e) => setUnit(e.target.value)}
+                    label="Unit"
+                  >
+                    <MenuItem value="lbs">Pounds (lbs)</MenuItem>
+                    <MenuItem value="kg">Kilograms (kg)</MenuItem>
+                  </Select>
+                </FormControl>
+              </Grid>
+
+              {/* Submit button */}
+              <Grid item xs={12}>
+                <Button
+                  type="submit"
+                  variant="contained"
+                  color="primary"
+                  fullWidth
+                  sx={{ backgroundColor: indigo[600], '&:hover': { backgroundColor: indigo[800] } }}
+                >
+                  Log Workout
+                </Button>
+              </Grid>
+            </Grid>
+          </form>
+
+          {/* Snackbar for confirmation */}
+          <Snackbar
+            open={snackbarOpen}
+            autoHideDuration={4000}
+            onClose={() => setSnackbarOpen(false)}
           >
-            <option value="">--Select an Exercise--</option>
-            {filteredExercises.length > 0 ? (
-              filteredExercises.map((exercise, index) => (
-                <option key={index} value={exercise}>
-                  {exercise}
-                </option>
-              ))
-            ) : (
-              <option disabled>No exercises found</option>
-            )}
-          </select>
-        </div>
+            <Alert onClose={() => setSnackbarOpen(false)} severity="success">
+              {confirmationMessage}
+            </Alert>
+          </Snackbar>
 
-        {/* Reps dropdown */}
-        <div>
-          <label>Reps: </label>
-          <select value={reps} onChange={(e) => setReps(e.target.value)} required>
-            <option value="">--Select Reps--</option>
-            <option value="5 or below">5 or below</option>
-            <option value="6">6</option>
-            <option value="7">7</option>
-            <option value="8">8</option>
-            <option value="9">9</option>
-            <option value="10">10</option>
-            <option value="11">11</option>
-            <option value="12">12</option>
-            <option value="13">13</option>
-            <option value="14">14</option>
-            <option value="15">15</option>
-            <option value="16 or above">16 or above</option>
-          </select>
-        </div>
-
-        {/* Sets dropdown */}
-        <div>
-          <label>Sets: </label>
-          <select value={sets} onChange={(e) => setSets(e.target.value)} required>
-            <option value="">--Select Set Number--</option>
-            <option value="1">1</option>
-            <option value="2">2</option>
-            <option value="3">3</option>
-            <option value="4">4</option>
-            <option value="5">5</option>
-          </select>
-        </div>
-
-        {/* Weight input */}
-        <div>
-          <label>Weight: </label>
-          <input
-            type="number"
-            placeholder="Enter weight"
-            value={weight}
-            onChange={(e) => setWeight(e.target.value)}
-            required
-          />
-        </div>
-
-        {/* Unit selector */}
-        <div>
-          <label>Unit: </label>
-          <select value={unit} onChange={(e) => setUnit(e.target.value)} required>
-            <option value="lbs">Pounds (lbs)</option>
-            <option value="kg">Kilograms (kg)</option>
-          </select>
-        </div>
-
-        {/* Submit button */}
-        <button type="submit">Log Workout</button>
-      </form>
-
-      {/* Display confirmation message after submitting */}
-      {confirmationMessage && (
-        <div style={{ marginTop: '20px', color: 'green' }}>
-          <h3>Workout Logged:</h3>
-          <p>{confirmationMessage}</p>
-        </div>
-      )}
-
-      {/* Section to add a new exercise */}
-      <div style={{ marginTop: '20px' }}>
-        <h3>Add a New Exercise</h3>
-        <input
-          type="text"
-          placeholder="New exercise name"
-          value={newExercise}
-          onChange={(e) => setNewExercise(e.target.value)}
-        />
-        <button onClick={handleAddExercise}>Add Exercise</button>
-      </div>
-    </div>
+          {/* Add new exercise */}
+          <Card sx={{ marginTop: '20px', backgroundColor: amber[50] }}>
+            <CardContent>
+              <Typography variant="h5" gutterBottom>
+                Add a New Exercise
+              </Typography>
+              <Grid container spacing={2}>
+                <Grid item xs={8}>
+                  <TextField
+                    fullWidth
+                    label="New Exercise"
+                    value={newExercise}
+                    onChange={(e) => setNewExercise(e.target.value)}
+                  />
+                </Grid>
+                <Grid item xs={4}>
+                  <Button
+                    variant="contained"
+                    color="secondary"
+                    onClick={handleAddExercise}
+                    sx={{ backgroundColor: amber[700], '&:hover': { backgroundColor: amber[900] } }}
+                  >
+                    Add Exercise
+                  </Button>
+                </Grid>
+              </Grid>
+            </CardContent>
+          </Card>
+        </Paper>
+      </Container>
+    </ThemeProvider>
   );
 };
 
