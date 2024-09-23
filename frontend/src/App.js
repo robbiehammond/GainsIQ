@@ -17,7 +17,6 @@ import {
   CardContent,
   ThemeProvider,
   createTheme,
-  CardActions,
 } from '@mui/material';
 
 import { amber, teal, indigo } from '@mui/material/colors';
@@ -92,21 +91,18 @@ const WorkoutTracker = () => {
       sets: sets,
       weight: convertedWeight,
     };
-  
+
     try {
       const response = await axios.post(`${apiUrl}/workouts`, workoutData);
       console.log(response.data);
-  
-      // Set detailed confirmation message with all data that was sent to the backend
+
       setConfirmationMessage(
-        `Logged: ${sets} set(s) of ${reps} rep(s) for ${selectedExercise} with ${convertedWeight.toFixed(2)} ${unit}`
+        `Logged: Set number ${sets} for ${selectedExercise}, ${reps} rep(s) with ${convertedWeight.toFixed(2)} ${unit}`
       );
       setSnackbarOpen(true);
-  
-      // Clear only reps and sets, keep the exercise, weight, and unit
+
       setReps('');
       setSets('');
-      
     } catch (error) {
       console.error('Error logging workout:', error);
     }
@@ -124,6 +120,17 @@ const WorkoutTracker = () => {
       }
     } else {
       alert('Exercise already exists or is invalid');
+    }
+  };
+
+  const handlePopLastSet = async () => {
+    try {
+      const response = await axios.post(`${apiUrl}/workouts`, { action: 'pop_last_set' });
+      console.log(response);
+      setConfirmationMessage(response.data.body);  // Response from the backend (e.g., 'Last set removed')
+      setSnackbarOpen(true);
+    } catch (error) {
+      console.error('Error popping last set:', error);
     }
   };
 
@@ -248,6 +255,19 @@ const WorkoutTracker = () => {
                   sx={{ backgroundColor: indigo[600], '&:hover': { backgroundColor: indigo[800] } }}
                 >
                   Log Workout
+                </Button>
+              </Grid>
+
+              {/* Pop last set button */}
+              <Grid item xs={12}>
+                <Button
+                  variant="contained"
+                  color="secondary"
+                  fullWidth
+                  onClick={handlePopLastSet}
+                  sx={{ backgroundColor: amber[600], '&:hover': { backgroundColor: amber[800] } }}
+                >
+                  Pop Last Set
                 </Button>
               </Grid>
             </Grid>

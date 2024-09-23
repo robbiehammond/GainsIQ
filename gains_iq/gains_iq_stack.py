@@ -76,7 +76,8 @@ class GainsIQStack(Stack):
                 "dynamodb:Scan",
                 "dynamodb:Query",
                 "dynamodb:GetItem",
-                "dynamodb:UpdateItem"
+                "dynamodb:UpdateItem",
+                "dynamodb:DeleteItem"
             ],
             resources=[exercises_table.table_arn, sets_table.table_arn]
         ))

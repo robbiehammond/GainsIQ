@@ -40,6 +40,8 @@ def main(event, context):
             return response_with_cors(200, add_exercise(body))
         elif 'exercise' in body and 'reps' in body and 'sets' in body and 'weight' in body:
             return response_with_cors(200, log_set(body))
+        elif body.get('action') == 'pop_last_set': 
+            return response_with_cors(200, pop_last_set())
         else:
             return response_with_cors(400, 'Invalid request')
 
@@ -103,3 +105,46 @@ def log_set(body):
         'statusCode': 200,
         'body': json.dumps(f'Set for {exercise} logged successfully')
     }
+
+def pop_last_set():
+    """
+    Fetches the most recent workout set (based on timestamp) and deletes it.
+    """
+    try:
+        # Scan the sets table to find the most recent set (sorted by timestamp manually in code)
+        response = sets_table.scan(
+            FilterExpression="attribute_exists(#ts)",
+            ExpressionAttributeNames={"#ts": "timestamp"}
+        )
+
+        items = response.get('Items', [])
+
+        if not items:
+            return {
+                'statusCode': 404,
+                'body': json.dumps('No set found to delete')
+            }
+
+        # Find the most recent set by sorting in code
+        most_recent_set = max(items, key=lambda x: x['timestamp'])
+        workout_id = most_recent_set['workoutId']
+        timestamp = most_recent_set['timestamp']
+
+        # Delete the most recent set
+        sets_table.delete_item(
+            Key={
+                'workoutId': workout_id,
+                'timestamp': timestamp
+            }
+        )
+
+        return {
+            'statusCode': 200,
+            'body': json.dumps(f'Successfully deleted last set for {most_recent_set["exercise"]}')
+        }
+
+    except Exception as e:
+        return {
+            'statusCode': 500,
+            'body': json.dumps(f"Error deleting last set: {str(e)}")
+        }
