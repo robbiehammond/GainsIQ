@@ -97,7 +97,7 @@ const WorkoutTracker = () => {
       console.log(response.data);
 
       setConfirmationMessage(
-        `Logged: Set number ${sets} for ${selectedExercise}, ${reps} rep(s) with ${convertedWeight.toFixed(2)} ${unit}`
+        `Logged: Set number ${sets} for ${selectedExercise}, ${reps} rep(s) with ${convertedWeight.toFixed(2)} lbs`
       );
       setSnackbarOpen(true);
 

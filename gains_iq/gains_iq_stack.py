@@ -53,7 +53,9 @@ class GainsIQStack(Stack):
                                         name="workoutId", type=dynamodb.AttributeType.STRING),
                                     sort_key=dynamodb.Attribute(
                                         name="timestamp", type=dynamodb.AttributeType.NUMBER),
-                                    billing_mode=dynamodb.BillingMode.PAY_PER_REQUEST)
+                                    billing_mode=dynamodb.BillingMode.PAY_PER_REQUEST,
+                                    point_in_time_recovery=True
+                                    )
 
         # S3 bucket for storing workout data and analysis results
         data_bucket = s3.Bucket(self, "GainsIQDataBucket",
