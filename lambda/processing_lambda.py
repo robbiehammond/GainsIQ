@@ -7,33 +7,25 @@ from decimal import Decimal
 import datetime
 from datetime import timedelta
 
-# Initialize AWS clients
 dynamodb = boto3.resource('dynamodb')
 sns = boto3.client('sns')
 
-# Get environment variables
 sets_table_name = os.environ['SETS_TABLE']
 s3_bucket_name = os.environ['S3_BUCKET_NAME']
 openai_api_key = os.environ['OPENAI_API_KEY']
 sns_topic_arn = os.environ['SNS_TOPIC_ARN'] 
 
-# Reference to DynamoDB table
 sets_table = dynamodb.Table(sets_table_name)
 
 def lambda_handler(event, context):
-    # Get last month's workout data
     workout_data = get_last_month_data()
     
-    # Generate the prompt for the OpenAI API
     prompt = generate_prompt(workout_data)
     
-    # Send the prompt to OpenAI and get the response
     analysis = call_openai_api(prompt)
     
-    # Save the analysis to S3 (optional)
     save_analysis_to_s3(analysis)
     
-    # Send the analysis via SNS
     send_via_sns(analysis)
     
     return {
@@ -46,7 +38,6 @@ def get_last_month_data():
     last_month = now - datetime.timedelta(days=30)
     last_month_timestamp = int(last_month.timestamp())
 
-    # Query to get items from the last 30 days
     response = sets_table.scan(
         FilterExpression="#ts >= :last_month",
         ExpressionAttributeNames={"#ts": "timestamp"},
@@ -75,18 +66,15 @@ def generate_prompt(workout_data):
         "If any outliers don't make sense compared to the rest of the data, please ignore those entries. They were likely mistakenly entered.\n\n"
     )
     
-    # Iterate over the workout data and append each entry to the prompt
     for workout in workout_data:
         exercise = workout.get('exercise', 'Unknown Exercise')
         set_number = workout.get('sets', 0)
         reps = workout.get('reps', 0)
         weight = workout.get('weight', Decimal(0))
 
-        # Convert the UTC timestamp to UTC-7 by subtracting 7 hours
         timestamp_utc = datetime.datetime.utcfromtimestamp(workout.get('timestamp', 0))
         timestamp_pst = timestamp_utc + utc_offset  # Adjust to UTC-7
 
-        # Format the timestamp to show date and time down to the minute
         formatted_timestamp = timestamp_pst.strftime('%Y-%m-%d %H:%M UTC-7')
         
         prompt += f"- {exercise}: set number {set_number}, {reps} reps, {weight} lbs on {formatted_timestamp}\n"

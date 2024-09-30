@@ -5,14 +5,11 @@ import uuid
 from datetime import datetime
 from decimal import Decimal
 
-# Initialize DynamoDB resource
 dynamodb = boto3.resource('dynamodb')
 
-# Get table names from environment variables
 exercises_table_name = os.environ['EXERCISES_TABLE']
 sets_table_name = os.environ['SETS_TABLE']
 
-# Reference to the DynamoDB tables using environment variables
 exercises_table = dynamodb.Table(exercises_table_name)
 sets_table = dynamodb.Table(sets_table_name)
 
@@ -20,9 +17,9 @@ def response_with_cors(status_code, body):
     return {
         'statusCode': status_code,
         'headers': {
-            'Access-Control-Allow-Origin': '*',  # Allow all origins
+            'Access-Control-Allow-Origin': '*',  
             'Access-Control-Allow-Headers': 'Content-Type',
-            'Access-Control-Allow-Methods': 'OPTIONS,POST,GET',  # Allowed methods
+            'Access-Control-Allow-Methods': 'OPTIONS,POST,GET',  
             'Content-Type': 'application/json'
         },
         'body': json.dumps(body)
@@ -30,11 +27,9 @@ def response_with_cors(status_code, body):
 
 def main(event, context):
     try:
-        # Handle GET request to fetch exercises
         if event['httpMethod'] == 'GET':
             return response_with_cors(200, get_exercises())
 
-        # Handle POST requests
         body = json.loads(event['body'])
         if 'exerciseName' in body:
             return response_with_cors(200, add_exercise(body))
@@ -49,7 +44,6 @@ def main(event, context):
         return response_with_cors(500, f"Error: {str(e)}")
 
 def get_exercises():
-    # Scan the ExercisesTable to get all exercises
     response = exercises_table.scan()
     exercises = [item['exerciseName'] for item in response['Items']]
 
@@ -59,10 +53,8 @@ def get_exercises():
     }
 
 def add_exercise(body):
-    # Extract the exercise name
     exercise_name = body['exerciseName']
 
-    # Add the exercise to the DynamoDB table
     exercises_table.put_item(
         Item={
             'exerciseName': exercise_name
@@ -75,21 +67,16 @@ def add_exercise(body):
     }
 
 def log_set(body):
-    # Generate a unique ID for the workout set
     workout_id = str(uuid.uuid4())
     
-    # Get the current timestamp
     timestamp = int(datetime.utcnow().timestamp())
 
-    # Extract details from the request body
     exercise = body['exercise']
     reps = body['reps']
     sets = body['sets']
     
-    # Convert weight to Decimal to avoid the float issue
     weight = Decimal(str(body['weight']))
 
-    # Add the set to the DynamoDB table
     sets_table.put_item(
         Item={
             'workoutId': workout_id,
@@ -97,7 +84,7 @@ def log_set(body):
             'exercise': exercise,
             'reps': reps,
             'sets': sets,
-            'weight': weight  # Ensure weight is stored as Decimal
+            'weight': weight  
         }
     )
 
@@ -111,7 +98,6 @@ def pop_last_set():
     Fetches the most recent workout set (based on timestamp) and deletes it.
     """
     try:
-        # Scan the sets table to find the most recent set (sorted by timestamp manually in code)
         response = sets_table.scan(
             FilterExpression="attribute_exists(#ts)",
             ExpressionAttributeNames={"#ts": "timestamp"}
