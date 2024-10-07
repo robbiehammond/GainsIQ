@@ -83,7 +83,7 @@ class GainsIQStack(Stack):
         notification_topic.add_subscription(subs.EmailSubscription("robbiehammond3@gmail.com"))
 
         backend_lambda = _lambda.Function(self, "GainsIQBackendHandler",
-                                          runtime=_lambda.Runtime.PYTHON_3_8,
+                                          runtime=_lambda.Runtime.PYTHON_3_9,
                                           handler="backend.main",
                                           code=_lambda.Code.from_asset("lambda"),
                                           role=lambda_role,
@@ -93,7 +93,7 @@ class GainsIQStack(Stack):
                                           })
 
         processing_lambda = _lambda.Function(self, "GainsIQProcessingLambda",
-                                             runtime=_lambda.Runtime.PYTHON_3_8,
+                                             runtime=_lambda.Runtime.PYTHON_3_9,
                                              handler="processing_lambda.lambda_handler",
                                              code=_lambda.Code.from_asset("lambda"),
                                              role=lambda_role,
