@@ -10,5 +10,5 @@ __pycache__
 cdk.out
 
 openai_key.txt
-backend_rs/target
-backend_rs/Cargo.lock
+backend/target
+backend/Cargo.lock

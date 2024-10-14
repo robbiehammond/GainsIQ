@@ -82,20 +82,10 @@ class GainsIQStack(Stack):
 
         notification_topic.add_subscription(subs.EmailSubscription("robbiehammond3@gmail.com"))
 
-        backend_lambda = _lambda.Function(self, "GainsIQBackendHandler",
-                                          runtime=_lambda.Runtime.PYTHON_3_9,
-                                          handler="backend.main",
-                                          code=_lambda.Code.from_asset("lambda"),
-                                          role=lambda_role,
-                                          environment={
-                                              'EXERCISES_TABLE': exercises_table.table_name,
-                                              'SETS_TABLE': sets_table.table_name
-                                          })
-
         processing_lambda = _lambda.Function(self, "GainsIQProcessingLambda",
                                              runtime=_lambda.Runtime.PYTHON_3_9,
                                              handler="processing_lambda.lambda_handler",
-                                             code=_lambda.Code.from_asset("lambda"),
+                                             code=_lambda.Code.from_asset("backend/summary_maker"),
                                              role=lambda_role,
                                              timeout=Duration.minutes(5),
                                              environment={
@@ -106,10 +96,10 @@ class GainsIQStack(Stack):
                                                  'SNS_TOPIC_ARN': notification_topic.topic_arn 
                                              })
         
-        rust_backend_lambda = _lambda.Function(self, "GainsIQRustBackendHandler",
+        backend_lambda = _lambda.Function(self, "GainsIQRustBackendHandler",
                                                runtime=_lambda.Runtime.PROVIDED_AL2,  # AWS-provided AL2 runtime for custom runtimes like Rust
                                                handler="bootstrap",  # This is the handler for Rust Lambda
-                                               code=_lambda.Code.from_asset("./backend_rs/target/lambda/backend_rs"),  # Adjust path to compiled Rust lambda
+                                               code=_lambda.Code.from_asset("./backend/target/lambda/backend_rs"),  # Adjust path to compiled Rust lambda
                                                role=lambda_role,
                                                timeout=Duration.minutes(5),
                                                environment={
@@ -130,8 +120,8 @@ class GainsIQStack(Stack):
                                  })
 
         workouts = api.root.add_resource("workouts")
-        workouts.add_method("POST", apigateway.LambdaIntegration(rust_backend_lambda, proxy=True))
-        workouts.add_method("GET", apigateway.LambdaIntegration(rust_backend_lambda, proxy=True))
+        workouts.add_method("POST", apigateway.LambdaIntegration(backend_lambda, proxy=True))
+        workouts.add_method("GET", apigateway.LambdaIntegration(backend_lambda, proxy=True))
 
         monthly_rule = events.Rule(self, "GainsIQMonthlyRule",
                                    schedule=events.Schedule.cron(minute="0", hour="0", day="1", month="*", year="*"))
