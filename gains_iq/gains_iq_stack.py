@@ -105,6 +105,17 @@ class GainsIQStack(Stack):
                                                  'OPENAI_API_KEY': openai_api_key,  
                                                  'SNS_TOPIC_ARN': notification_topic.topic_arn 
                                              })
+        
+        rust_backend_lambda = _lambda.Function(self, "GainsIQRustBackendHandler",
+                                               runtime=_lambda.Runtime.PROVIDED_AL2,  # AWS-provided AL2 runtime for custom runtimes like Rust
+                                               handler="bootstrap",  # This is the handler for Rust Lambda
+                                               code=_lambda.Code.from_asset("./backend_rs/target/lambda/backend_rs"),  # Adjust path to compiled Rust lambda
+                                               role=lambda_role,
+                                               timeout=Duration.minutes(5),
+                                               environment={
+                                                   'EXERCISES_TABLE': exercises_table.table_name,
+                                                   'SETS_TABLE': sets_table.table_name
+                                               })
 
         # Grant the processing Lambda permission to publish to the SNS topic
         notification_topic.grant_publish(processing_lambda)

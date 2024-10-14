@@ -1,0 +1,4 @@
+{
+    "httpMethod": "POST",
+    "body": "{\"exercise\": \"test\", \"reps\": 10, \"sets\": 3, \"weight\": 225}"
+}
