@@ -1,5 +1,5 @@
 {
-    "body": "{\"exercise\":\"Test\",\"reps\":5,\"sets\":2,\"weight\":123}",
+    "body": "{\"exercise_name\":\"Test2\"}",
     "headers": {
         "Accept": "application/json, text/plain, */*",
         "Accept-Language": "en-US,en;q=0.9",

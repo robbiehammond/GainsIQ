@@ -1,12 +1,11 @@
-use aws_lambda_events::http::request;
 use aws_sdk_dynamodb::types::AttributeValue;
 use aws_sdk_dynamodb::Client;
-use lambda_runtime::{service_fn, tracing::subscriber::field::debug, Error, LambdaEvent};
+use lambda_runtime::{service_fn, Error, LambdaEvent};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::env;
 use uuid::Uuid;
-use chrono::{Utc, TimeZone};
+use chrono::Utc;
 use aws_config;
 use serde_json::Value;
 use log::warn;
@@ -153,7 +152,6 @@ async fn pop_last_set(client: &Client, table_name: &str) -> Response {
     let result = client
         .scan()
         .table_name(table_name)
-        .limit(1)
         .expression_attribute_names("#ts", "timestamp")
         .filter_expression("attribute_exists(#ts)")
         .send()
@@ -167,7 +165,6 @@ async fn pop_last_set(client: &Client, table_name: &str) -> Response {
     if let Some(most_recent_set) = items.into_iter().max_by_key(|x| x["timestamp"].as_n().unwrap().parse::<i64>().unwrap()) {
         let workout_id = most_recent_set["workoutId"].as_s().unwrap();
         let timestamp = most_recent_set["timestamp"].as_n().unwrap();
-
         match client
             .delete_item()
             .table_name(table_name)

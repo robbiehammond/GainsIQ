@@ -90,11 +90,9 @@ const WorkoutTracker = () => {
       sets: sets,
       weight: convertedWeight,
     };
-    console.log(workoutData);
 
     try {
       const response = await axios.post(`${apiUrl}/workouts`, workoutData);
-      console.log(response);
 
       setConfirmationMessage(
         `Logged: Set number ${sets} for ${selectedExercise}, ${reps} rep(s) with ${convertedWeight.toFixed(2)} lbs`
@@ -111,8 +109,7 @@ const WorkoutTracker = () => {
   const handleAddExercise = async () => {
     if (newExercise && !exercises.includes(newExercise)) {
       try {
-        const response = await axios.post(`${apiUrl}/workouts`, { exerciseName: newExercise });
-        console.log(response.data);
+        const response = await axios.post(`${apiUrl}/workouts`, { exercise_name: newExercise });
         setExercises([...exercises, newExercise]);
         setNewExercise('');
       } catch (error) {
@@ -126,8 +123,7 @@ const WorkoutTracker = () => {
   const handlePopLastSet = async () => {
     try {
       const response = await axios.post(`${apiUrl}/workouts`, { action: 'pop_last_set' });
-      console.log(response);
-      setConfirmationMessage(response.data.body);  // Response from the backend (e.g., 'Last set removed')
+      setConfirmationMessage(response.data);  // Response from the backend (e.g., 'Last set removed')
       setSnackbarOpen(true);
     } catch (error) {
       console.error('Error popping last set:', error);
