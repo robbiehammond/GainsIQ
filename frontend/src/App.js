@@ -63,8 +63,7 @@ const WorkoutTracker = () => {
     const fetchExercises = async () => {
       try {
         const response = await axios.get(`${apiUrl}/workouts`);
-        const exercisesData = JSON.parse(response.data.body);
-        setExercises(exercisesData || []);
+        setExercises(response.data || []);
       } catch (error) {
         console.error('Error fetching exercises:', error);
         setExercises([]);
@@ -87,14 +86,15 @@ const WorkoutTracker = () => {
     const convertedWeight = convertToPounds(parseFloat(weight), unit);
     const workoutData = {
       exercise: selectedExercise,
-      reps: reps,
+      reps: reps.toString(),
       sets: sets,
       weight: convertedWeight,
     };
+    console.log(workoutData);
 
     try {
       const response = await axios.post(`${apiUrl}/workouts`, workoutData);
-      console.log(response.data);
+      console.log(response);
 
       setConfirmationMessage(
         `Logged: Set number ${sets} for ${selectedExercise}, ${reps} rep(s) with ${convertedWeight.toFixed(2)} lbs`
