@@ -16,7 +16,7 @@ use log::warn;
 struct RequestBody {
     exercise_name: Option<String>,
     exercise: Option<String>,
-    reps: Option<i32>,
+    reps: Option<String>,
     sets: Option<i32>,
     weight: Option<f32>,
     action: Option<String>,
@@ -24,7 +24,7 @@ struct RequestBody {
 
 #[derive(Serialize)]
 struct Response {
-    status_code: u16,
+    statusCode: u16,
     body: String,
     headers: HashMap<String, String>,
 }
@@ -51,18 +51,20 @@ async fn handler(event: LambdaEvent<serde_json::Value>) -> Result<Response, Erro
         _ => Value::Null,
     };
 
-    // Deserialize the nested body field into your RequestBody struct
-    let request_body: RequestBody = serde_json::from_value(request_body_json).unwrap_or_else(|_| {
+    // Safely deserialize the nested "body" into the RequestBody struct, ignoring missing fields
+    let request_body: RequestBody = serde_json::from_value(request_body_json.clone()).unwrap_or_else(|_| {
         warn!("Failed to parse request body, using empty defaults");
         RequestBody {
-            exercise_name: None,
-            exercise: None,
-            reps: None,
-            sets: None,
-            weight: None,
-            action: None,
+            exercise_name: request_body_json.get("exercise_name").and_then(|v| v.as_str().map(String::from)),
+            exercise: request_body_json.get("exercise").and_then(|v| v.as_str().map(String::from)),
+            reps: request_body_json.get("reps").and_then(|v| v.as_str().map(String::from)),
+            sets: request_body_json.get("sets").and_then(|v| v.as_u64().map(|v| v as i32)),
+            weight: request_body_json.get("weight").and_then(|v| v.as_f64().map(|v| v as f32)),
+            action: request_body_json.get("action").and_then(|v| v.as_str().map(String::from)),
         }
     });
+    println!("{:?}", request_body);
+
 
 
     let response = match payload_clone["httpMethod"].as_str() { // Use cloned payload here
@@ -122,7 +124,7 @@ async fn log_set(
     client: &Client,
     table_name: &str,
     exercise: &str,
-    reps: i32,
+    reps: String,
     sets: i32,
     weight: f32,
 ) -> Response {
@@ -135,7 +137,7 @@ async fn log_set(
         .item("workoutId", AttributeValue::S(workout_id))
         .item("timestamp", AttributeValue::N(timestamp.to_string()))
         .item("exercise", AttributeValue::S(exercise.to_string()))
-        .item("reps", AttributeValue::N(reps.to_string()))
+        .item("reps", AttributeValue::S(reps.to_string()))
         .item("sets", AttributeValue::N(sets.to_string()))
         .item("weight", AttributeValue::N(weight.to_string()))
         .send()
@@ -153,7 +155,6 @@ async fn pop_last_set(client: &Client, table_name: &str) -> Response {
         .table_name(table_name)
         .limit(1)
         .expression_attribute_names("#ts", "timestamp")
-        .expression_attribute_values(":zero", AttributeValue::N("0".to_string()))
         .filter_expression("attribute_exists(#ts)")
         .send()
         .await;
@@ -183,15 +184,13 @@ async fn pop_last_set(client: &Client, table_name: &str) -> Response {
     }
 }
 
-fn success_response(status_code: u16, body: String) -> Response {
+fn success_response(statusCode: u16, body: String) -> Response {
     let mut headers = HashMap::new();
     headers.insert("Access-Control-Allow-Origin".to_string(), "*".to_string());
-    headers.insert("Access-Control-Allow-Headers".to_string(), "Content-Type".to_string());
-    headers.insert("Access-Control-Allow-Methods".to_string(), "OPTIONS,POST,GET".to_string());
     headers.insert("Content-Type".to_string(), "application/json".to_string());
 
     Response {
-        status_code,
+        statusCode,
         body,
         headers,
     }

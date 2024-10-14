@@ -130,8 +130,8 @@ class GainsIQStack(Stack):
                                  })
 
         workouts = api.root.add_resource("workouts")
-        workouts.add_method("POST", apigateway.LambdaIntegration(backend_lambda, proxy=True))
-        workouts.add_method("GET", apigateway.LambdaIntegration(backend_lambda, proxy=True))
+        workouts.add_method("POST", apigateway.LambdaIntegration(rust_backend_lambda, proxy=True))
+        workouts.add_method("GET", apigateway.LambdaIntegration(rust_backend_lambda, proxy=True))
 
         monthly_rule = events.Rule(self, "GainsIQMonthlyRule",
                                    schedule=events.Schedule.cron(minute="0", hour="0", day="1", month="*", year="*"))
