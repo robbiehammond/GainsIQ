@@ -35,7 +35,6 @@ Object.defineProperty(exports, "__esModule", { value: true });
 const react_1 = __importStar(require("react"));
 const material_1 = require("@mui/material");
 const colors_1 = require("@mui/material/colors");
-// Create a custom theme with more colors
 const theme = (0, material_1.createTheme)({
     palette: {
         primary: {
@@ -60,7 +59,6 @@ const theme = (0, material_1.createTheme)({
 });
 const WorkoutTracker = () => {
     const apiUrl = 'https://57gpuk0gme.execute-api.us-west-2.amazonaws.com/prod';
-    // State definitions
     const [exercises, setExercises] = (0, react_1.useState)([]);
     const [searchTerm, setSearchTerm] = (0, react_1.useState)('');
     const [newExercise, setNewExercise] = (0, react_1.useState)('');
@@ -71,7 +69,6 @@ const WorkoutTracker = () => {
     const [unit, setUnit] = (0, react_1.useState)('lbs');
     const [confirmationMessage, setConfirmationMessage] = (0, react_1.useState)('');
     const [snackbarOpen, setSnackbarOpen] = (0, react_1.useState)(false);
-    // Fetch exercises from backend using Fetch API
     (0, react_1.useEffect)(() => {
         const fetchExercises = () => __awaiter(void 0, void 0, void 0, function* () {
             try {
@@ -90,7 +87,6 @@ const WorkoutTracker = () => {
     const convertToPounds = (weight, unit) => {
         return unit === 'kg' ? weight * 2.20462 : weight;
     };
-    // Handle form submission to log a workout using Fetch API
     const handleSubmit = (e) => __awaiter(void 0, void 0, void 0, function* () {
         e.preventDefault();
         const convertedWeight = convertToPounds(parseFloat(weight), unit);
@@ -113,7 +109,6 @@ const WorkoutTracker = () => {
             }
             setConfirmationMessage(`Logged: Set number ${sets} for ${selectedExercise}, ${reps} rep(s) with ${convertedWeight.toFixed(2)} lbs`);
             setSnackbarOpen(true);
-            // Clear only reps and sets, keep other values
             setReps('');
             setSets('');
         }
@@ -121,7 +116,6 @@ const WorkoutTracker = () => {
             console.error('Error logging workout:', error);
         }
     });
-    // Handle adding a new exercise using Fetch API
     const handleAddExercise = () => __awaiter(void 0, void 0, void 0, function* () {
         if (newExercise && !exercises.includes(newExercise)) {
             try {
@@ -146,7 +140,6 @@ const WorkoutTracker = () => {
             alert('Exercise already exists or is invalid');
         }
     });
-    // Handle popping the last set using Fetch API
     const handlePopLastSet = () => __awaiter(void 0, void 0, void 0, function* () {
         try {
             const response = yield fetch(`${apiUrl}/workouts`, {
