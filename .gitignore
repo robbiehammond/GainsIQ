@@ -12,3 +12,5 @@ cdk.out
 openai_key.txt
 backend/target
 backend/Cargo.lock
+
+backend/.DS_Store
