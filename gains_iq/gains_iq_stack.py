@@ -13,6 +13,7 @@ from aws_cdk import (
     Duration
 )
 import os
+import json
 from constructs import Construct
 from aws_cdk.aws_apigateway import Cors
 
@@ -21,13 +22,18 @@ class GainsIQStack(Stack):
     def __init__(self, scope: Construct, id: str, **kwargs) -> None:
         super().__init__(scope, id, **kwargs)
 
-        openai_key_file = './openai_key.txt'
+        with open('config.json') as config_file:
+            config = json.load(config_file)
+            email = config.get('email')
+            openai_key = config.get('openai_key')
         
-        if not os.path.exists(openai_key_file):
-            raise FileNotFoundError(f"{openai_key_file} does not exist. Please make sure the file exists.")
+        if not email:
+            raise ValueError("email not set in config file")
         
-        with open(openai_key_file, 'r') as f:
-            openai_api_key = f.read().strip()
+        if not openai_key:
+            raise ValueError("openai_key not set in config file.")
+
+        
 
         frontend_bucket = s3.Bucket(self, "GainsIQFrontend",
                                     website_index_document="index.html",
@@ -92,7 +98,7 @@ class GainsIQStack(Stack):
                                                  'SETS_TABLE': sets_table.table_name,
                                                  'EXERCISES_TABLE': exercises_table.table_name,
                                                  'S3_BUCKET_NAME': data_bucket.bucket_name,
-                                                 'OPENAI_API_KEY': openai_api_key,  
+                                                 'OPENAI_API_KEY': openai_key,  
                                                  'SNS_TOPIC_ARN': notification_topic.topic_arn 
                                              })
         

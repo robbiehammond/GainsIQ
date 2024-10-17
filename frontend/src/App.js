@@ -58,7 +58,7 @@ const theme = (0, material_1.createTheme)({
     },
 });
 const WorkoutTracker = () => {
-    const apiUrl = 'https://57gpuk0gme.execute-api.us-west-2.amazonaws.com/prod';
+    const apiUrl = process.env.REACT_APP_API_URL || '';
     const [exercises, setExercises] = (0, react_1.useState)([]);
     const [searchTerm, setSearchTerm] = (0, react_1.useState)('');
     const [newExercise, setNewExercise] = (0, react_1.useState)('');

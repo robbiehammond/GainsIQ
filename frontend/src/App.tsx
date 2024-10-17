@@ -54,8 +54,7 @@ const theme = createTheme({
 });
 
 const WorkoutTracker: React.FC = () => {
-  const apiUrl = 'https://57gpuk0gme.execute-api.us-west-2.amazonaws.com/prod';
-
+  const apiUrl = process.env.REACT_APP_API_URL || '';
   const [exercises, setExercises] = useState<string[]>([]);
   const [searchTerm, setSearchTerm] = useState<string>('');
   const [newExercise, setNewExercise] = useState<string>('');
