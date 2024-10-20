@@ -23,6 +23,6 @@ Rebuild the frontend again and then deploy.
 
 
 ## Work to do (vaguely ordered in terms of importance)
-- Build a way to see all workouts
 - Redesign frontend so it doesn't look so bad
 - Make it so double deploy doesn't need to happen first time (pass APIGW URL to frontend one deploy)
+- Exercise progress tracker; something like reps * weight, averaged over all sets, over

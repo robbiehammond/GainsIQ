@@ -1,5 +1,3 @@
-// src/lib.rs
-
 use aws_lambda_events::http::request;
 use aws_sdk_dynamodb::types::AttributeValue;
 use aws_sdk_dynamodb::Client;
@@ -8,7 +6,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::env;
 use uuid::Uuid;
-use chrono::{Duration, Utc};
+use chrono::{Duration, Utc, TimeZone, FixedOffset};
 use aws_config;
 use serde_json::Value;
 use log::warn;
@@ -106,11 +104,9 @@ impl DynamoDb for Client {
 }
 
 
-// Make the handler public
 pub async fn handler(event: LambdaEvent<serde_json::Value>) -> Result<Response, Error> {
     let dynamodb_client = Client::new(&aws_config::load_defaults(aws_config::BehaviorVersion::latest()).await);
 
-    // Read the environment variables for the table names
     let exercises_table_name = env::var("EXERCISES_TABLE").expect("EXERCISES_TABLE not set");
     let sets_table_name = env::var("SETS_TABLE").expect("SETS_TABLE not set");
     let payload_clone = event.payload.clone(); 
@@ -120,7 +116,6 @@ pub async fn handler(event: LambdaEvent<serde_json::Value>) -> Result<Response, 
         _ => Value::Null,
     };
 
-    // Safely deserialize the nested "body" into the RequestBody struct, ignoring missing fields
     let request_body: RequestBody = serde_json::from_value(request_body_json.clone()).unwrap_or_else(|_| {
         warn!("Failed to parse request body, using empty defaults");
         RequestBody {
@@ -139,7 +134,14 @@ pub async fn handler(event: LambdaEvent<serde_json::Value>) -> Result<Response, 
             get_exercises(&dynamodb_client as &dyn DynamoDb, &exercises_table_name).await
         }
         Some("POST") => {
-            if let Some(exercise_name) = request_body.exercise_name {
+            if request_body.action.as_deref() == Some("get_progress") {
+                if let Some(exercise_name) = request_body.exercise_name {
+                    get_exercise_progress(&dynamodb_client as &dyn DynamoDb, &sets_table_name, &exercise_name).await
+                } else {
+                    error_response(400, "Missing exercise name for progress".to_string())
+                }
+            }
+            else if let Some(exercise_name) = request_body.exercise_name {
                 add_exercise(&dynamodb_client as &dyn DynamoDb, &exercises_table_name, &exercise_name).await
             } else if request_body.action.as_deref() == Some("pop_last_set") {
                 pop_last_set(&dynamodb_client as &dyn DynamoDb, &sets_table_name).await 
@@ -284,5 +286,65 @@ pub async fn get_last_month_workouts(client: &dyn DynamoDb, table_name: &str) ->
             success_response(200, serde_json::to_string(&workouts).unwrap())
         }
         Err(e) => error_response(500, format!("Error fetching last month workouts: {:?}", e)),
+    }
+}
+
+pub async fn get_exercise_progress(client: &dyn DynamoDb, table_name: &str, exercise_name: &str) -> Response {
+    match client.scan_sets(table_name).await {
+        Ok(items) => {
+            // Filter only the sets for the specified exercise
+            let filtered_sets: Vec<HashMap<String, AttributeValue>> = items.into_iter()
+                .filter(|item| {
+                    item.get("exercise")
+                        .and_then(|val| val.as_s().ok())
+                        .map(|val| val == exercise_name)
+                        .unwrap_or(false)
+                })
+                .collect();
+
+            let mut volume_datapoints: HashMap<String, Vec<f32>> = HashMap::new();
+            
+            for set in filtered_sets {
+                if let (Some(reps), Some(weight), Some(timestamp)) = (
+                    set.get("reps"),
+                    set.get("weight").and_then(|v| v.as_n().ok()),
+                    set.get("timestamp").and_then(|v| v.as_n().ok()),
+                ) {
+
+                    // for a single set
+                    let ts = timestamp.parse::<i64>().unwrap_or(0);
+                    let dt = Utc.timestamp(ts, 0).with_timezone(&FixedOffset::west(8 * 3600));
+                    let date_str = dt.format("%Y-%m-%d").to_string();
+
+                    // If it's N, should be unwrapple. 
+                    // If S, get first thing before whitespace. So 5 corresponds to 5 or less, 16 corresponds to 16 or more.
+                    let reps_val: f32 = match reps {
+                        AttributeValue::N(val) => val.parse::<f32>().unwrap_or(0.0),
+                        AttributeValue::S(val) => val.split_whitespace().next().unwrap_or("0").parse::<f32>().unwrap_or(0.0),
+                        _ => 0.0,
+                    };
+                    let weight_val = weight.parse::<f32>().unwrap_or(0.0);
+                    // TODO: Fix me! Weight should be weighted (no pun intended) higher than reps, since weight matters a bit more. Need a formula for it.
+                    let volume = reps_val * weight_val;
+
+                    volume_datapoints.entry(date_str).or_insert(vec![]).push(volume);
+                }
+            }
+
+            let hammond_indicies: Vec<HashMap<String, String>> = volume_datapoints 
+                .into_iter()
+                .map(|(date, indices)| {
+                    // hammond index = avg(reps * weight) for all sets of a given workout. There is 1 Hammond index per workout.
+                    let hammond_index = indices.iter().sum::<f32>() / indices.len() as f32;
+                    let mut record = HashMap::new();
+                    record.insert("date".to_string(), date);
+                    record.insert("hammond_index".to_string(), hammond_index.to_string());
+                    record
+                })
+                .collect();
+
+            success_response(200, serde_json::to_string(&hammond_indicies).unwrap())
+        }
+        Err(e) => error_response(500, format!("Error fetching progress: {:?}", e)),
     }
 }
