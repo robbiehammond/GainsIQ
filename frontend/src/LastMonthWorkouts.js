@@ -31,10 +31,15 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
         step((generator = generator.apply(thisArg, _arguments || [])).next());
     });
 };
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
 Object.defineProperty(exports, "__esModule", { value: true });
 const react_1 = __importStar(require("react"));
 const material_1 = require("@mui/material");
 const colors_1 = require("@mui/material/colors");
+const Expand_1 = __importDefault(require("@mui/icons-material/Expand"));
+const lodash_1 = require("lodash"); // Import lodash for grouping
 // Create a custom theme with more colors
 const theme = (0, material_1.createTheme)({
     palette: {
@@ -87,28 +92,37 @@ const LastMonthWorkouts = () => {
         });
         fetchWorkouts();
     }, [apiUrl]);
+    // Function to group workouts by date
+    const groupWorkoutsByDate = (workouts) => {
+        return (0, lodash_1.groupBy)(workouts, (workout) => new Date(parseInt(workout.timestamp) * 1000).toLocaleDateString());
+    };
+    const groupedWorkouts = groupWorkoutsByDate(workouts);
+    const sortedDates = Object.keys(groupedWorkouts).sort((a, b) => {
+        const dateA = new Date(a).getTime();
+        const dateB = new Date(b).getTime();
+        return dateB - dateA; // Sort in reverse order
+    });
     return (react_1.default.createElement(material_1.ThemeProvider, { theme: theme },
         react_1.default.createElement(material_1.Container, { maxWidth: "md", sx: { padding: '40px 20px' } },
             react_1.default.createElement(material_1.Paper, { elevation: 3, sx: { padding: '20px', backgroundColor: theme.palette.background.default } },
                 react_1.default.createElement(material_1.Typography, { variant: "h4", align: "center", gutterBottom: true }, "Last Month's Workouts"),
                 loading ? (react_1.default.createElement(material_1.Grid, { container: true, justifyContent: "center" },
-                    react_1.default.createElement(material_1.CircularProgress, null))) : (react_1.default.createElement(material_1.Grid, { container: true, spacing: 2 }, workouts.length > 0 ? (workouts.map((workout, index) => (react_1.default.createElement(material_1.Grid, { item: true, xs: 12, key: index },
-                    react_1.default.createElement(material_1.Card, { sx: { backgroundColor: colors_1.amber[50] } },
-                        react_1.default.createElement(material_1.CardContent, null,
-                            react_1.default.createElement(material_1.Typography, { variant: "h6", gutterBottom: true },
-                                "Exercise: ",
-                                workout.exercise),
-                            react_1.default.createElement(material_1.Typography, null,
-                                "Sets: ",
-                                workout.sets,
-                                ", Reps: ",
-                                workout.reps,
-                                ", Weight: ",
-                                workout.weight,
-                                " lbs"),
-                            react_1.default.createElement(material_1.Typography, null,
-                                "Date: ",
-                                new Date(parseInt(workout.timestamp) * 1000).toLocaleString()))))))) : (react_1.default.createElement(material_1.Typography, { variant: "h6", align: "center" }, "No workouts found."))))))));
+                    react_1.default.createElement(material_1.CircularProgress, null))) : (react_1.default.createElement(react_1.default.Fragment, null, sortedDates.length > 0 ? (sortedDates.map((date, index) => (react_1.default.createElement(material_1.Accordion, { key: index },
+                    react_1.default.createElement(material_1.AccordionSummary, { expandIcon: react_1.default.createElement(Expand_1.default, null) },
+                        react_1.default.createElement(material_1.Typography, null, date)),
+                    react_1.default.createElement(material_1.AccordionDetails, null, groupedWorkouts[date].map((workout, workoutIndex) => (react_1.default.createElement(material_1.Paper, { key: workoutIndex, elevation: 1, sx: { padding: '10px', marginBottom: '10px' } },
+                        react_1.default.createElement(material_1.Typography, { variant: "h6" }, workout.exercise),
+                        react_1.default.createElement(material_1.Typography, null,
+                            "Sets: ",
+                            workout.sets,
+                            ", Reps: ",
+                            workout.reps,
+                            ", Weight: ",
+                            workout.weight,
+                            " lbs"),
+                        react_1.default.createElement(material_1.Typography, null,
+                            "Time: ",
+                            new Date(parseInt(workout.timestamp) * 1000).toLocaleTimeString()))))))))) : (react_1.default.createElement(material_1.Typography, { variant: "h6", align: "center" }, "No workouts found."))))))));
 };
 exports.default = LastMonthWorkouts;
 //# sourceMappingURL=LastMonthWorkouts.js.map

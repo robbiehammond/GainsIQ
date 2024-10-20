@@ -1,16 +1,19 @@
 import React, { useState, useEffect } from 'react';
 import {
   Container,
-  Grid,
   Typography,
   Paper,
-  Card,
-  CardContent,
-  ThemeProvider,
-  createTheme,
+  Accordion,
+  AccordionSummary,
+  AccordionDetails,
   CircularProgress,
+  Grid,
+  ThemeProvider,
+  createTheme
 } from '@mui/material';
 import { amber, teal, indigo } from '@mui/material/colors';
+import ExpandIcon from '@mui/icons-material/Expand';
+import { groupBy } from 'lodash'; // Import lodash for grouping
 
 // Create a custom theme with more colors
 const theme = createTheme({
@@ -53,16 +56,17 @@ const LastMonthWorkouts: React.FC = () => {
     const fetchWorkouts = async () => {
       try {
         const response = await fetch(`${apiUrl}/workouts`, {
-            method: 'POST', // TODO: Don't make this a POST! 
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({ action: 'last_month_workouts' }), 
-          });
-  
-          if (!response.ok) {
-            throw new Error('Failed to fetch last month workouts');
-          }
+          method: 'POST', 
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ action: 'last_month_workouts' }), 
+        });
+
+        if (!response.ok) {
+          throw new Error('Failed to fetch last month workouts');
+        }
+
         const data = await response.json();
         setWorkouts(data || []);
         setLoading(false);
@@ -75,6 +79,22 @@ const LastMonthWorkouts: React.FC = () => {
 
     fetchWorkouts();
   }, [apiUrl]);
+
+  // Function to group workouts by date
+  const groupWorkoutsByDate = (workouts: Workout[]) => {
+    return groupBy(workouts, (workout) =>
+      new Date(parseInt(workout.timestamp) * 1000).toLocaleDateString()
+    );
+  };
+
+  const groupedWorkouts = groupWorkoutsByDate(workouts);
+
+    const sortedDates = Object.keys(groupedWorkouts).sort((a, b) => {
+        const dateA = new Date(a).getTime();
+        const dateB = new Date(b).getTime();
+        return dateB - dateA; // Sort in reverse order
+      }
+    );
 
   return (
     <ThemeProvider theme={theme}>
@@ -89,31 +109,38 @@ const LastMonthWorkouts: React.FC = () => {
               <CircularProgress />
             </Grid>
           ) : (
-            <Grid container spacing={2}>
-              {workouts.length > 0 ? (
-                workouts.map((workout, index) => (
-                  <Grid item xs={12} key={index}>
-                    <Card sx={{ backgroundColor: amber[50] }}>
-                      <CardContent>
-                        <Typography variant="h6" gutterBottom>
-                          Exercise: {workout.exercise}
-                        </Typography>
-                        <Typography>
-                          Sets: {workout.sets}, Reps: {workout.reps}, Weight: {workout.weight} lbs
-                        </Typography>
-                        <Typography>
-                          Date: {new Date(parseInt(workout.timestamp) * 1000).toLocaleString()}
-                        </Typography>
-                      </CardContent>
-                    </Card>
-                  </Grid>
+            <>
+              {sortedDates.length > 0 ? (
+                sortedDates.map((date, index) => (
+                  <Accordion key={index}>
+                    <AccordionSummary expandIcon={<ExpandIcon></ExpandIcon>}>
+                      <Typography>{date}</Typography>
+                    </AccordionSummary>
+                    <AccordionDetails>
+                      {groupedWorkouts[date].map((workout, workoutIndex) => (
+                        <Paper
+                          key={workoutIndex}
+                          elevation={1}
+                          sx={{ padding: '10px', marginBottom: '10px' }}
+                        >
+                          <Typography variant="h6">{workout.exercise}</Typography>
+                          <Typography>
+                            Sets: {workout.sets}, Reps: {workout.reps}, Weight: {workout.weight} lbs
+                          </Typography>
+                          <Typography>
+                            Time: {new Date(parseInt(workout.timestamp) * 1000).toLocaleTimeString()}
+                          </Typography>
+                        </Paper>
+                      ))}
+                    </AccordionDetails>
+                  </Accordion>
                 ))
               ) : (
                 <Typography variant="h6" align="center">
                   No workouts found.
                 </Typography>
               )}
-            </Grid>
+            </>
           )}
         </Paper>
       </Container>
