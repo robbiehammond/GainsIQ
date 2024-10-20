@@ -1,5 +1,6 @@
 // src/lib.rs
 
+use aws_lambda_events::http::request;
 use aws_sdk_dynamodb::types::AttributeValue;
 use aws_sdk_dynamodb::Client;
 use lambda_runtime::{Error, LambdaEvent};
@@ -7,7 +8,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::env;
 use uuid::Uuid;
-use chrono::Utc;
+use chrono::{Duration, Utc};
 use aws_config;
 use serde_json::Value;
 use log::warn;
@@ -38,6 +39,7 @@ pub trait DynamoDb {
     async fn put_set(&self, table_name: &str, item: HashMap<String, AttributeValue>) -> Result<(), aws_sdk_dynamodb::Error>;
     async fn scan_sets(&self, table_name: &str) -> Result<Vec<HashMap<String, AttributeValue>>, aws_sdk_dynamodb::Error>;
     async fn delete_set(&self, table_name: &str, workout_id: &str, timestamp: &str) -> Result<(), aws_sdk_dynamodb::Error>;
+    async fn query_last_month_sets(&self, table_name: &str) -> Result<Vec<HashMap<String, AttributeValue>>, aws_sdk_dynamodb::Error>;
 }
 
 
@@ -87,6 +89,20 @@ impl DynamoDb for Client {
             .await?;
         Ok(())
     }
+    async fn query_last_month_sets(&self, table_name: &str) -> Result<Vec<HashMap<String, AttributeValue>>, aws_sdk_dynamodb::Error> {
+        let one_month_ago = Utc::now().timestamp() - Duration::days(30).num_seconds();
+
+        let result = self
+            .scan()
+            .table_name(table_name)
+            .expression_attribute_names("#ts", "timestamp")
+            .expression_attribute_values(":one_month_ago", AttributeValue::N(one_month_ago.to_string()))
+            .filter_expression("#ts > :one_month_ago")
+            .send()
+            .await?;
+        Ok(result.items.unwrap_or_default())
+    }
+
 }
 
 
@@ -97,8 +113,7 @@ pub async fn handler(event: LambdaEvent<serde_json::Value>) -> Result<Response, 
     // Read the environment variables for the table names
     let exercises_table_name = env::var("EXERCISES_TABLE").expect("EXERCISES_TABLE not set");
     let sets_table_name = env::var("SETS_TABLE").expect("SETS_TABLE not set");
-    let payload_clone = event.payload.clone(); // Clone event.payload
-    println!("{}", payload_clone);
+    let payload_clone = event.payload.clone(); 
 
     let request_body_json = match payload_clone.get("body") {
         Some(Value::String(body)) => serde_json::from_str::<Value>(body).unwrap_or(Value::Null),
@@ -120,7 +135,20 @@ pub async fn handler(event: LambdaEvent<serde_json::Value>) -> Result<Response, 
     println!("{:?}", request_body);
 
     let response = match payload_clone["httpMethod"].as_str() {
-        Some("GET") => get_exercises(&dynamodb_client as &dyn DynamoDb, &exercises_table_name).await,
+        Some("GET") => {
+            if let Some(action) = request_body.action.as_deref() {
+                if action == "last_month_workouts" {
+                    get_last_month_workouts(&dynamodb_client as &dyn DynamoDb, &sets_table_name).await
+                }
+                else {
+                    get_exercises(&dynamodb_client as &dyn DynamoDb, &exercises_table_name).await
+                }
+            }
+            // Just default to getting exercises 
+            else {
+                get_exercises(&dynamodb_client as &dyn DynamoDb, &exercises_table_name).await
+            }
+        }
         Some("POST") => {
             if let Some(exercise_name) = request_body.exercise_name {
                 add_exercise(&dynamodb_client as &dyn DynamoDb, &exercises_table_name, &exercise_name).await
@@ -221,4 +249,27 @@ pub fn success_response(statusCode: u16, body: String) -> Response {
 
 pub fn error_response(status_code: u16, body: String) -> Response {
     success_response(status_code, body)
+}
+
+pub async fn get_last_month_workouts(client: &dyn DynamoDb, table_name: &str) -> Response {
+    // Query DynamoDB for sets from the last month
+    match client.query_last_month_sets(table_name).await {
+        Ok(items) => {
+            let workouts: Vec<HashMap<String, String>> = items
+                .into_iter()
+                .map(|item| {
+                    let mut workout = HashMap::new();
+                    workout.insert("exercise".to_string(), item["exercise"].as_s().unwrap().to_string());
+                    workout.insert("reps".to_string(), item["reps"].as_s().unwrap().to_string());
+                    workout.insert("sets".to_string(), item["sets"].as_n().unwrap().to_string());
+                    workout.insert("weight".to_string(), item["weight"].as_n().unwrap().to_string());
+                    workout.insert("timestamp".to_string(), item["timestamp"].as_n().unwrap().to_string());
+                    workout
+                })
+                .collect();
+
+            success_response(200, serde_json::to_string(&workouts).unwrap())
+        }
+        Err(e) => error_response(500, format!("Error fetching last month workouts: {:?}", e)),
+    }
 }
