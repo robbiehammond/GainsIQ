@@ -136,24 +136,16 @@ pub async fn handler(event: LambdaEvent<serde_json::Value>) -> Result<Response, 
 
     let response = match payload_clone["httpMethod"].as_str() {
         Some("GET") => {
-            if let Some(action) = request_body.action.as_deref() {
-                if action == "last_month_workouts" {
-                    get_last_month_workouts(&dynamodb_client as &dyn DynamoDb, &sets_table_name).await
-                }
-                else {
-                    get_exercises(&dynamodb_client as &dyn DynamoDb, &exercises_table_name).await
-                }
-            }
-            // Just default to getting exercises 
-            else {
-                get_exercises(&dynamodb_client as &dyn DynamoDb, &exercises_table_name).await
-            }
+            get_exercises(&dynamodb_client as &dyn DynamoDb, &exercises_table_name).await
         }
         Some("POST") => {
             if let Some(exercise_name) = request_body.exercise_name {
                 add_exercise(&dynamodb_client as &dyn DynamoDb, &exercises_table_name, &exercise_name).await
             } else if request_body.action.as_deref() == Some("pop_last_set") {
-                pop_last_set(&dynamodb_client as &dyn DynamoDb, &sets_table_name).await
+                pop_last_set(&dynamodb_client as &dyn DynamoDb, &sets_table_name).await 
+            }
+            else if request_body.action.as_deref() == Some("last_month_workouts") {
+                get_last_month_workouts(&dynamodb_client as &dyn DynamoDb, &sets_table_name).await // TODO: Don't make this a POST!
             } else if let (Some(exercise), Some(reps), Some(sets), Some(weight)) = (
                 request_body.exercise,
                 request_body.reps,
