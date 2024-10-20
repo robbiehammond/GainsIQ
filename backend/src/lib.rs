@@ -252,21 +252,42 @@ pub fn error_response(status_code: u16, body: String) -> Response {
 }
 
 pub async fn get_last_month_workouts(client: &dyn DynamoDb, table_name: &str) -> Response {
-    // Query DynamoDB for sets from the last month
+    fn extract_string_or_number(attr_value: &AttributeValue) -> String {
+        match attr_value {
+            AttributeValue::S(val) => val.to_string(),
+            AttributeValue::N(val) => val.to_string(),
+            _ => "unknown".to_string(),
+        }
+    }
+
     match client.query_last_month_sets(table_name).await {
         Ok(items) => {
-            let workouts: Vec<HashMap<String, String>> = items
+            let mut workouts: Vec<HashMap<String, String>> = items
                 .into_iter()
                 .map(|item| {
                     let mut workout = HashMap::new();
+
                     workout.insert("exercise".to_string(), item["exercise"].as_s().unwrap().to_string());
-                    workout.insert("reps".to_string(), item["reps"].as_s().unwrap().to_string());
-                    workout.insert("sets".to_string(), item["sets"].as_n().unwrap().to_string());
-                    workout.insert("weight".to_string(), item["weight"].as_n().unwrap().to_string());
+
+                    if let Some(reps_value) = item.get("reps") {
+                        workout.insert("reps".to_string(), extract_string_or_number(reps_value));
+                    }
+
+                    if let Some(sets_value) = item.get("sets") {
+                        workout.insert("sets".to_string(), extract_string_or_number(sets_value));
+                    }
+
+                    if let Some(weight_value) = item.get("weight") {
+                        workout.insert("weight".to_string(), extract_string_or_number(weight_value));
+                    }
+
                     workout.insert("timestamp".to_string(), item["timestamp"].as_n().unwrap().to_string());
+
                     workout
                 })
                 .collect();
+
+            workouts.sort_by_key(|workout| workout["timestamp"].parse::<i64>().unwrap_or(0));
 
             success_response(200, serde_json::to_string(&workouts).unwrap())
         }

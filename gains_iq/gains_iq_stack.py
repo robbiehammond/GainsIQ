@@ -103,8 +103,9 @@ class GainsIQStack(Stack):
                                              })
         
         backend_lambda = _lambda.Function(self, "GainsIQRustBackendHandler",
-                                               runtime=_lambda.Runtime.PROVIDED_AL2,  # AWS-provided AL2 runtime for custom runtimes like Rust
-                                               handler="bootstrap",  # This is the handler for Rust Lambda
+                                               runtime=_lambda.Runtime.PROVIDED_AL2023,  
+                                               handler="bootstrap", 
+                                               architecture=_lambda.Architecture.ARM_64,
                                                code=_lambda.Code.from_asset("./backend/target/lambda/backend_rs"),  # Adjust path to compiled Rust lambda
                                                role=lambda_role,
                                                timeout=Duration.minutes(5),

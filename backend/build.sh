@@ -1,1 +1,1 @@
-cargo lambda build --compiler cross --release
+cargo lambda build --release --arm64
