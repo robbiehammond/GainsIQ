@@ -325,6 +325,11 @@ pub async fn get_exercise_progress(client: &dyn DynamoDb, table_name: &str, exer
                     };
                     let weight_val = weight.parse::<f32>().unwrap_or(0.0);
                     // TODO: Fix me! Weight should be weighted (no pun intended) higher than reps, since weight matters a bit more. Need a formula for it.
+                    /*
+                        Might be a little more complex than meets the eye. See this example for proof
+                            - Let's say you're doing an exercise at 70 pounds for 8 reps. Next session, you do 75 pounds for 7 reps. 
+                            - Is your performance about the same, better, or worse? And by how much? This seems very contextual on the exercise I'd say.
+                     */
                     let volume = reps_val * weight_val;
 
                     volume_datapoints.entry(date_str).or_insert(vec![]).push(volume);
