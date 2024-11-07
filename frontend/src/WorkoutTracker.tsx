@@ -155,7 +155,6 @@ const WorkoutTracker: React.FC = () => {
     }
   };
 
-  // Handle popping the last set
   const handlePopLastSet = async () => {
     try {
       const response = await fetch(`${apiUrl}/workouts`, {
@@ -233,7 +232,7 @@ const WorkoutTracker: React.FC = () => {
                   >
                     <MenuItem value="">-- Select Reps --</MenuItem>
                     <MenuItem value="5 or below">5 or below</MenuItem>
-                    {[...Array(12).keys()].map((n) => (
+                    {[...Array(10).keys()].map((n) => (
                       <MenuItem key={n} value={(n + 6).toString()}>
                         {n + 6}
                       </MenuItem>

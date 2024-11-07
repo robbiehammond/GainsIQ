@@ -146,7 +146,6 @@ const WorkoutTracker = () => {
             alert('Exercise already exists or is invalid');
         }
     });
-    // Handle popping the last set
     const handlePopLastSet = () => __awaiter(void 0, void 0, void 0, function* () {
         try {
             const response = yield fetch(`${apiUrl}/workouts`, {
@@ -187,7 +186,7 @@ const WorkoutTracker = () => {
                                 react_1.default.createElement(material_1.Select, { value: reps, onChange: (e) => setReps(e.target.value), label: "Reps" },
                                     react_1.default.createElement(material_1.MenuItem, { value: "" }, "-- Select Reps --"),
                                     react_1.default.createElement(material_1.MenuItem, { value: "5 or below" }, "5 or below"),
-                                    [...Array(12).keys()].map((n) => (react_1.default.createElement(material_1.MenuItem, { key: n, value: (n + 6).toString() }, n + 6))),
+                                    [...Array(10).keys()].map((n) => (react_1.default.createElement(material_1.MenuItem, { key: n, value: (n + 6).toString() }, n + 6))),
                                     react_1.default.createElement(material_1.MenuItem, { value: "16 or above" }, "16 or above")))),
                         react_1.default.createElement(material_1.Grid, { item: true, xs: 12, sm: 6 },
                             react_1.default.createElement(material_1.FormControl, { fullWidth: true, required: true },
