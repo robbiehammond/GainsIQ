@@ -1,5 +1,11 @@
+use handler::handler;
 use lambda_runtime::{service_fn, Error};
-use backend_rs::handler;
+
+pub mod exercises;
+pub mod utils;
+pub mod sets;
+pub mod handler;
+
 
 #[tokio::main]
 async fn main() -> Result<(), Error> {

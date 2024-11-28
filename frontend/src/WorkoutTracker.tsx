@@ -72,8 +72,9 @@ const WorkoutTracker: React.FC = () => {
   useEffect(() => {
     const fetchExercises = async () => {
       try {
-        const response = await fetch(`${apiUrl}/workouts`);
+        const response = await fetch(`${apiUrl}/exercises`);
         const data = await response.json();
+        console.log(data)
         setExercises(data || []);
       } catch (error) {
         console.error('Error fetching exercises:', error);
@@ -106,8 +107,8 @@ const WorkoutTracker: React.FC = () => {
     };
 
     try {
-      const response = await fetch(`${apiUrl}/workouts`, {
-        method: 'POST', // TODO: Don't make this a post, make this back into a GET for new URL
+      const response = await fetch(`${apiUrl}/sets/log`, {
+        method: 'POST', 
         headers: {
           'Content-Type': 'application/json',
         },
@@ -133,7 +134,7 @@ const WorkoutTracker: React.FC = () => {
   const handleAddExercise = async () => {
     if (newExercise && !exercises.includes(newExercise)) {
       try {
-        const response = await fetch(`${apiUrl}/workouts`, {
+        const response = await fetch(`${apiUrl}/exercises`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -157,12 +158,11 @@ const WorkoutTracker: React.FC = () => {
 
   const handlePopLastSet = async () => {
     try {
-      const response = await fetch(`${apiUrl}/workouts`, {
+      const response = await fetch(`${apiUrl}/sets/pop`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ action: 'pop_last_set' }),
       });
 
       if (!response.ok) {

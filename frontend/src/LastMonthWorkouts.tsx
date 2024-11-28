@@ -55,12 +55,11 @@ const LastMonthWorkouts: React.FC = () => {
   useEffect(() => {
     const fetchWorkouts = async () => {
       try {
-        const response = await fetch(`${apiUrl}/workouts`, {
-          method: 'POST', 
+        const response = await fetch(`${apiUrl}/sets/last_month`, {
+          method: 'GET', 
           headers: {
             'Content-Type': 'application/json',
           },
-          body: JSON.stringify({ action: 'last_month_workouts' }), 
         });
 
         if (!response.ok) {
