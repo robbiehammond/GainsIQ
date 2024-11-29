@@ -65,8 +65,16 @@ pub async fn handler(event: LambdaEvent<Value>) -> Result<Value, Error> {
         }
 
         // Weight endpoints 
-        ("POST", "/weight/log") => {
+        ("POST", "/weight") => {
             let response = weight::log_weight(&dynamodb_client, &weight_table_name, body.weight.unwrap()).await;
+            Ok(serde_json::to_value(response)?)
+        }
+        ("GET", "/weight") => {
+            let response = weight::get_weight(&dynamodb_client, &weight_table_name).await;
+            Ok(serde_json::to_value(response)?)
+        }
+        ("DELETE", "/weight") => {
+            let response = weight::delete_most_recent_weight(&dynamodb_client, &weight_table_name).await;
             Ok(serde_json::to_value(response)?)
         }
 

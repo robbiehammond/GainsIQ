@@ -14,6 +14,8 @@ pub trait DynamoDb {
     async fn delete_set(&self, table_name: &str, workout_id: &str, timestamp: &str) -> Result<(), aws_sdk_dynamodb::Error>;
     async fn query_last_month_sets(&self, table_name: &str) -> Result<Vec<HashMap<String, AttributeValue>>, aws_sdk_dynamodb::Error>;
     async fn put_weight(&self, table_name: &str, item: HashMap<String, AttributeValue>) -> Result<(), aws_sdk_dynamodb::Error>;
+    async fn scan_weights(&self, table_name: &str) -> Result<Vec<HashMap<String, AttributeValue>>, aws_sdk_dynamodb::Error>;
+    async fn delete_weight(&self, table_name: &str, timestamp: &str) -> Result<(), aws_sdk_dynamodb::Error>;
 }
 
 
@@ -80,6 +82,20 @@ impl DynamoDb for Client {
         self.put_item()
             .table_name(table_name)
             .set_item(Some(item))
+            .send()
+            .await?;
+        Ok(())
+    }
+    
+    async fn scan_weights(&self, table_name: &str) -> Result<Vec<HashMap<String, AttributeValue>>, aws_sdk_dynamodb::Error> {
+        let result = self.scan().table_name(table_name).send().await?;
+        Ok(result.items.unwrap_or_default())
+    }
+
+    async fn delete_weight(&self, table_name: &str, timestamp: &str) -> Result<(), aws_sdk_dynamodb::Error> {
+        self.delete_item()
+            .table_name(table_name)
+            .key("timestamp", AttributeValue::N(timestamp.to_string()))
             .send()
             .await?;
         Ok(())

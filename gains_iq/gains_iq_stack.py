@@ -145,8 +145,9 @@ class GainsIQStack(Stack):
         last_month.add_method("GET", apigateway.LambdaIntegration(backend_lambda, proxy=True))
 
         weight = api.root.add_resource("weight")
-        weight_log = weight.add_resource("log")
-        weight_log.add_method("POST", apigateway.LambdaIntegration(backend_lambda, proxy=True))
+        weight.add_method("POST", apigateway.LambdaIntegration(backend_lambda, proxy=True))
+        weight.add_method("GET", apigateway.LambdaIntegration(backend_lambda, proxy=True))
+        weight.add_method("DELETE", apigateway.LambdaIntegration(backend_lambda, proxy=True))
 
         monthly_rule = events.Rule(self, "GainsIQMonthlyRule",
                                    schedule=events.Schedule.cron(minute="0", hour="0", day="1", month="*", year="*"))
