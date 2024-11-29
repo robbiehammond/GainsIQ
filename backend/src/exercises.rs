@@ -1,6 +1,4 @@
-use aws_sdk_dynamodb::{types::AttributeValue, Client};
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
 
 use crate::utils::{error_response, success_response, DynamoDb, Response};
 

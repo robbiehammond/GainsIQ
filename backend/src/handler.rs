@@ -1,22 +1,20 @@
 use aws_sdk_dynamodb::Client;
 use lambda_runtime::{Error, LambdaEvent};
 use log::warn;
-use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::env;
-use crate::{exercises, sets, utils::{error_response, RequestBody}};
+use crate::{weight, exercises, sets, utils::{error_response, RequestBody}};
 
 
 pub async fn handler(event: LambdaEvent<Value>) -> Result<Value, Error> {
     let dynamodb_client = Client::new(&aws_config::load_defaults(aws_config::BehaviorVersion::latest()).await);
 
-    // Extract path and HTTP method
     let path = event.payload["path"].as_str().unwrap_or("/");
     let http_method = event.payload["httpMethod"].as_str().unwrap_or("GET");
 
-    // Environment variables
     let exercises_table_name = env::var("EXERCISES_TABLE").expect("EXERCISES_TABLE not set");
     let sets_table_name = env::var("SETS_TABLE").expect("SETS_TABLE not set");
+    let weight_table_name = env::var("WEIGHT_TABLE").expect("WEIGHT_TABLE not set");
     let payload_clone = event.payload.clone(); 
 
 
@@ -63,6 +61,12 @@ pub async fn handler(event: LambdaEvent<Value>) -> Result<Value, Error> {
         }
         ("POST", "/sets/pop") => {
             let response = sets::pop_last_set(&dynamodb_client, &sets_table_name).await;
+            Ok(serde_json::to_value(response)?)
+        }
+
+        // Weight endpoints 
+        ("POST", "/weight/log") => {
+            let response = weight::log_weight(&dynamodb_client, &weight_table_name, body.weight.unwrap()).await;
             Ok(serde_json::to_value(response)?)
         }
 

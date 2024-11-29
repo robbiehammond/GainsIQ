@@ -1,10 +1,8 @@
 use aws_sdk_dynamodb::{types::AttributeValue, Client};
 use chrono::Utc;
-use lambda_runtime::Error;
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
 use uuid::Uuid;
 use std::collections::HashMap;
-use serde_json::Value;
 use crate::{utils::success_response, utils::{error_response, DynamoDb}, utils::Response};
 
 

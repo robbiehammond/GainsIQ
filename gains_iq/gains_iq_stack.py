@@ -57,6 +57,13 @@ class GainsIQStack(Stack):
                                     billing_mode=dynamodb.BillingMode.PAY_PER_REQUEST,
                                     point_in_time_recovery=True
                                     )
+        
+        weight_table = dynamodb.Table(self, "WeightTable",
+                                    partition_key=dynamodb.Attribute(
+                                        name="timestamp", type=dynamodb.AttributeType.NUMBER),
+                                    billing_mode=dynamodb.BillingMode.PAY_PER_REQUEST,
+                                    point_in_time_recovery=True
+                                    )
 
         data_bucket = s3.Bucket(self, "GainsIQDataBucket",
                                 versioned=True)
@@ -79,7 +86,7 @@ class GainsIQStack(Stack):
                 "dynamodb:UpdateItem",
                 "dynamodb:DeleteItem"
             ],
-            resources=[exercises_table.table_arn, sets_table.table_arn]
+            resources=[exercises_table.table_arn, sets_table.table_arn, weight_table.table_arn]
         ))
 
         data_bucket.grant_read_write(lambda_role)
@@ -111,13 +118,12 @@ class GainsIQStack(Stack):
                                                timeout=Duration.minutes(5),
                                                environment={
                                                    'EXERCISES_TABLE': exercises_table.table_name,
-                                                   'SETS_TABLE': sets_table.table_name
+                                                   'SETS_TABLE': sets_table.table_name,
+                                                   'WEIGHT_TABLE': weight_table.table_name
                                                })
 
-        # Grant the processing Lambda permission to publish to the SNS topic
         notification_topic.grant_publish(processing_lambda)
 
-        # API Gateway for the workout tracker (Backend Lambda)
         api = apigateway.RestApi(self, "GainsIQAPI",
                                  rest_api_name="GainsIQ API",
                                  description="API for GainsIQ workout tracker.",
@@ -137,6 +143,10 @@ class GainsIQStack(Stack):
         pop_set.add_method("POST", apigateway.LambdaIntegration(backend_lambda, proxy=True))
         last_month = sets.add_resource("last_month")
         last_month.add_method("GET", apigateway.LambdaIntegration(backend_lambda, proxy=True))
+
+        weight = api.root.add_resource("weight")
+        weight_log = weight.add_resource("log")
+        weight_log.add_method("POST", apigateway.LambdaIntegration(backend_lambda, proxy=True))
 
         monthly_rule = events.Rule(self, "GainsIQMonthlyRule",
                                    schedule=events.Schedule.cron(minute="0", hour="0", day="1", month="*", year="*"))
