@@ -12,11 +12,9 @@ import {
 } from '@mui/material';
 import { amber, indigo } from '@mui/material/colors';
 import { theme } from './style/theme';
+import { WeightEntryData } from './models/WeightEntryData';
 
-interface WeightEntryData {
-  timestamp: string;
-  weight: number;
-}
+
 
 const WeightEntry: React.FC = () => {
   const apiUrl = process.env.REACT_APP_API_URL || '';

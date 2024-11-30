@@ -5,6 +5,7 @@ from aws_cdk import (
     aws_apigateway as apigateway,
     aws_dynamodb as dynamodb,
     aws_s3_deployment as s3deploy,
+    core,
     aws_sns as sns,
     aws_sns_subscriptions as subs,
     aws_events as events,

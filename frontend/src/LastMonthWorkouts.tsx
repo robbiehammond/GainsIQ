@@ -13,18 +13,11 @@ import {
 import ExpandIcon from '@mui/icons-material/Expand';
 import { groupBy } from 'lodash'; 
 import { theme } from './style/theme';
-
-interface Workout {
-  exercise: string;
-  weight: string;
-  reps: string;
-  sets: string;
-  timestamp: string;
-}
+import { Set, SetUtils } from './models/Set';
 
 const LastMonthWorkouts: React.FC = () => {
   const apiUrl = process.env.REACT_APP_API_URL || '';
-  const [workouts, setWorkouts] = useState<Workout[]>([]);
+  const [sets, setSets] = useState<Set[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
 
   useEffect(() => {
@@ -42,11 +35,12 @@ const LastMonthWorkouts: React.FC = () => {
         }
 
         const data = await response.json();
-        setWorkouts(data || []);
+
+        setSets(data.map(SetUtils.fromBackend) || []);
         setLoading(false);
       } catch (error) {
         console.error('Error fetching last month workouts:', error);
-        setWorkouts([]);
+        setSets([]);
         setLoading(false);
       }
     };
@@ -54,19 +48,18 @@ const LastMonthWorkouts: React.FC = () => {
     fetchWorkouts();
   }, [apiUrl]);
 
-  // Function to group workouts by date
-  const groupWorkoutsByDate = (workouts: Workout[]) => {
-    return groupBy(workouts, (workout) =>
-      new Date(parseInt(workout.timestamp) * 1000).toLocaleDateString()
+  const groupWorkoutsByDate = (sets: Set[]) => {
+    return groupBy(sets, (set) =>
+      new Date(parseInt(set.timestamp || '0') * 1000).toLocaleDateString()
     );
   };
 
-  const groupedWorkouts = groupWorkoutsByDate(workouts);
+  const groupedSets = groupWorkoutsByDate(sets);
 
-    const sortedDates = Object.keys(groupedWorkouts).sort((a, b) => {
+    const sortedDates = Object.keys(groupedSets).sort((a, b) => {
         const dateA = new Date(a).getTime();
         const dateB = new Date(b).getTime();
-        return dateB - dateA; // Sort in reverse order
+        return dateB - dateA; 
       }
     );
 
@@ -91,18 +84,18 @@ const LastMonthWorkouts: React.FC = () => {
                       <Typography>{date}</Typography>
                     </AccordionSummary>
                     <AccordionDetails>
-                      {groupedWorkouts[date].map((workout, workoutIndex) => (
+                      {groupedSets[date].map((set, setIndex) => (
                         <Paper
-                          key={workoutIndex}
+                          key={setIndex}
                           elevation={1}
                           sx={{ padding: '10px', marginBottom: '10px' }}
                         >
-                          <Typography variant="h6">{workout.exercise}</Typography>
+                          <Typography variant="h6">{set.exercise}</Typography>
                           <Typography>
-                            Sets: {workout.sets}, Reps: {workout.reps}, Weight: {workout.weight} lbs
+                            Set #: {set.setNumber}, Reps: {set.reps}, Weight: {set.weight} lbs
                           </Typography>
                           <Typography>
-                            Time: {new Date(parseInt(workout.timestamp) * 1000).toLocaleTimeString()}
+                            Time: {new Date(parseInt(set.timestamp || '0') * 1000).toLocaleTimeString()}
                           </Typography>
                         </Paper>
                       ))}
