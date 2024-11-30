@@ -15,14 +15,9 @@ import {
   Card,
   CardContent,
   ThemeProvider,
-  createTheme,
 } from '@mui/material';
-import { amber, teal, indigo } from '@mui/material/colors';
-
-// Define interface for Exercise and WorkoutData
-interface Exercise {
-  exerciseName: string;
-}
+import { amber, indigo } from '@mui/material/colors';
+import {theme } from './style/theme';
 
 interface WorkoutData {
   exercise: string;
@@ -30,30 +25,6 @@ interface WorkoutData {
   sets: number;
   weight: number;
 }
-
-// Create a custom theme
-const theme = createTheme({
-  palette: {
-    primary: {
-      main: indigo[500],
-    },
-    secondary: {
-      main: amber[500],
-    },
-    background: {
-      default: teal[50],
-    },
-  },
-  typography: {
-    h4: {
-      fontWeight: 'bold',
-      color: indigo[700],
-    },
-    h5: {
-      color: amber[800],
-    },
-  },
-});
 
 const WorkoutTracker: React.FC = () => {
   const apiUrl = process.env.REACT_APP_API_URL || '';
@@ -68,7 +39,6 @@ const WorkoutTracker: React.FC = () => {
   const [confirmationMessage, setConfirmationMessage] = useState<string>('');
   const [snackbarOpen, setSnackbarOpen] = useState<boolean>(false);
 
-  // Fetch exercises
   useEffect(() => {
     const fetchExercises = async () => {
       try {
@@ -85,17 +55,14 @@ const WorkoutTracker: React.FC = () => {
     fetchExercises();
   }, [apiUrl]);
 
-  // Filter exercises based on search term
   const filteredExercises = exercises.filter((exercise) =>
     exercise.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  // Convert weight to pounds if in kg
   const convertToPounds = (weight: number, unit: 'lbs' | 'kg'): number => {
     return unit === 'kg' ? weight * 2.20462 : weight;
   };
 
-  // Handle form submission to log a workout
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const convertedWeight = convertToPounds(parseFloat(weight), unit);
@@ -130,7 +97,6 @@ const WorkoutTracker: React.FC = () => {
     }
   };
 
-  // Handle adding a new exercise
   const handleAddExercise = async () => {
     if (newExercise && !exercises.includes(newExercise)) {
       try {
@@ -187,7 +153,6 @@ const WorkoutTracker: React.FC = () => {
 
           <form onSubmit={handleSubmit}>
             <Grid container spacing={3}>
-              {/* Search bar for exercises */}
               <Grid item xs={12}>
                 <TextField
                   fullWidth
@@ -198,7 +163,6 @@ const WorkoutTracker: React.FC = () => {
                 />
               </Grid>
 
-              {/* Exercise selection dropdown */}
               <Grid item xs={12}>
                 <FormControl fullWidth required>
                   <InputLabel>Select Exercise</InputLabel>
@@ -242,7 +206,6 @@ const WorkoutTracker: React.FC = () => {
                 </FormControl>
               </Grid>
 
-              {/* Sets */}
               <Grid item xs={12} sm={6}>
                 <FormControl fullWidth required>
                   <InputLabel>Set Number</InputLabel>
@@ -261,7 +224,6 @@ const WorkoutTracker: React.FC = () => {
                 </FormControl>
               </Grid>
 
-              {/* Weight */}
               <Grid item xs={12} sm={6}>
                 <TextField
                   fullWidth
@@ -273,7 +235,6 @@ const WorkoutTracker: React.FC = () => {
                 />
               </Grid>
 
-              {/* Unit */}
               <Grid item xs={12} sm={6}>
                 <FormControl fullWidth required>
                   <InputLabel>Unit</InputLabel>
@@ -293,7 +254,6 @@ const WorkoutTracker: React.FC = () => {
                 </FormControl>
               </Grid>
 
-              {/* Submit button */}
               <Grid item xs={12}>
                 <Button
                   type="submit"
@@ -306,7 +266,6 @@ const WorkoutTracker: React.FC = () => {
                 </Button>
               </Grid>
 
-              {/* Pop last set button */}
               <Grid item xs={12}>
                 <Button
                   variant="contained"
@@ -321,7 +280,6 @@ const WorkoutTracker: React.FC = () => {
             </Grid>
           </form>
 
-          {/* Snackbar for confirmation */}
           <Snackbar
             open={snackbarOpen}
             autoHideDuration={4000}
@@ -332,7 +290,6 @@ const WorkoutTracker: React.FC = () => {
             </Alert>
           </Snackbar>
 
-          {/* Add new exercise */}
           <Card sx={{ marginTop: '20px', backgroundColor: amber[50] }}>
             <CardContent>
               <Typography variant="h5" gutterBottom>

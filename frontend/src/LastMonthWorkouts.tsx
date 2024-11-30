@@ -9,35 +9,10 @@ import {
   CircularProgress,
   Grid,
   ThemeProvider,
-  createTheme
 } from '@mui/material';
-import { amber, teal, indigo } from '@mui/material/colors';
 import ExpandIcon from '@mui/icons-material/Expand';
-import { groupBy } from 'lodash'; // Import lodash for grouping
-
-// Create a custom theme with more colors
-const theme = createTheme({
-  palette: {
-    primary: {
-      main: indigo[500],
-    },
-    secondary: {
-      main: amber[500],
-    },
-    background: {
-      default: teal[50],
-    },
-  },
-  typography: {
-    h4: {
-      fontWeight: 'bold',
-      color: indigo[700],
-    },
-    h5: {
-      color: amber[800],
-    },
-  },
-});
+import { groupBy } from 'lodash'; 
+import { theme } from './style/theme';
 
 interface Workout {
   exercise: string;

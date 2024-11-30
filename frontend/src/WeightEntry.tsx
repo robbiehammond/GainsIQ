@@ -9,32 +9,9 @@ import {
   Snackbar,
   Alert,
   ThemeProvider,
-  createTheme,
 } from '@mui/material';
-import { amber, teal, indigo } from '@mui/material/colors';
-
-const theme = createTheme({
-  palette: {
-    primary: {
-      main: indigo[500],
-    },
-    secondary: {
-      main: amber[500],
-    },
-    background: {
-      default: teal[50],
-    },
-  },
-  typography: {
-    h4: {
-      fontWeight: 'bold',
-      color: indigo[700],
-    },
-    h5: {
-      color: amber[800],
-    },
-  },
-});
+import { amber, indigo } from '@mui/material/colors';
+import { theme } from './style/theme';
 
 interface WeightEntryData {
   timestamp: string;
@@ -159,7 +136,6 @@ const WeightEntry: React.FC = () => {
               />
             </Grid>
 
-            {/* Log weight button */}
             <Grid item xs={12}>
               <Button
                 variant="contained"
@@ -195,7 +171,6 @@ const WeightEntry: React.FC = () => {
             </Alert>
           </Snackbar>
 
-          {/* Display logged weights */}
           <Typography variant="h5" gutterBottom sx={{ marginTop: '20px' }}>
             Logged Weights
           </Typography>
