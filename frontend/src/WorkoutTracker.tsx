@@ -18,13 +18,7 @@ import {
 } from '@mui/material';
 import { amber, indigo } from '@mui/material/colors';
 import {theme } from './style/theme';
-
-interface WorkoutData {
-  exercise: string;
-  reps: string;
-  sets: number;
-  weight: number;
-}
+import { Set, SetUtils } from './models/Set';
 
 const WorkoutTracker: React.FC = () => {
   const apiUrl = process.env.REACT_APP_API_URL || '';
@@ -33,7 +27,7 @@ const WorkoutTracker: React.FC = () => {
   const [newExercise, setNewExercise] = useState<string>('');
   const [selectedExercise, setSelectedExercise] = useState<string>('');
   const [reps, setReps] = useState<string>('');
-  const [sets, setSets] = useState<string>('');
+  const [setNumber, setSetNumber] = useState<string>('');
   const [weight, setWeight] = useState<string>('');
   const [unit, setUnit] = useState<'lbs' | 'kg'>('lbs');
   const [confirmationMessage, setConfirmationMessage] = useState<string>('');
@@ -66,11 +60,11 @@ const WorkoutTracker: React.FC = () => {
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const convertedWeight = convertToPounds(parseFloat(weight), unit);
-    const workoutData: WorkoutData = {
+    const setData: Set = {
       exercise: selectedExercise,
       reps: reps.toString(),
-      sets: parseInt(sets),
-      weight: convertedWeight,
+      setNumber: parseInt(setNumber),
+      weight: convertedWeight
     };
 
     try {
@@ -79,19 +73,18 @@ const WorkoutTracker: React.FC = () => {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(workoutData),
+        body: JSON.stringify(SetUtils.toBackend(setData)),
       });
-
       if (!response.ok) {
         throw new Error('Failed to log workout');
       }
 
       setConfirmationMessage(
-        `Logged: Set number ${sets} for ${selectedExercise}, ${reps} rep(s) with ${convertedWeight.toFixed(2)} lbs`
+        `Logged: Set number ${setNumber} for ${selectedExercise}, ${reps} rep(s) with ${convertedWeight.toFixed(2)} lbs`
       );
       setSnackbarOpen(true);
       setReps('');
-      setSets('');
+      setSetNumber('');
     } catch (error) {
       console.error('Error logging workout:', error);
     }
@@ -185,7 +178,6 @@ const WorkoutTracker: React.FC = () => {
                 </FormControl>
               </Grid>
 
-              {/* Reps */}
               <Grid item xs={12} sm={6}>
                 <FormControl fullWidth required>
                   <InputLabel>Reps</InputLabel>
@@ -210,8 +202,8 @@ const WorkoutTracker: React.FC = () => {
                 <FormControl fullWidth required>
                   <InputLabel>Set Number</InputLabel>
                   <Select
-                    value={sets}
-                    onChange={(e) => setSets(e.target.value)}
+                    value={setNumber}
+                    onChange={(e) => setSetNumber(e.target.value)}
                     label="Sets"
                   >
                     <MenuItem value="">-- Select Set Number --</MenuItem>

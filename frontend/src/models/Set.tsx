@@ -1,8 +1,8 @@
 export interface Set {
     exercise: string;
-    weight: string;
+    weight: number;
     reps: string;
-    setNumber: string;
+    setNumber: number;
     timestamp?: string;
 }
 
@@ -15,6 +15,17 @@ export class SetUtils {
         reps: item.reps,
         setNumber: item.sets, 
         timestamp: item.timestamp, 
+      };
+    }
+
+    // Same comment as above.
+    static toBackend(set: Set): any {
+      return {
+        exercise: set.exercise,
+        weight: set.weight,
+        reps: set.reps,
+        sets: set.setNumber, 
+        timestamp: set.timestamp, 
       };
     }
   }
