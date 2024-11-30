@@ -22,7 +22,13 @@ REACT_APP_API_URL=https://blahblahblah.execute-api.us-west-2.amazonaws.com/prod
 Rebuild the frontend again and then deploy.
 
 
+## Design
+Just so I remember vaguely how this works:
+![](doc/GainsIQ.png)
+
+
 ## Task Backlog (vaguely ordered in terms of importance)
 - Redesign frontend so it doesn't look so bad
+- An image that illustrates the design 
 - Rename "sets" column to "set_number" or "setNumber"
 - Make it so double deploy doesn't need to happen first time (pass APIGW URL to frontend one deploy)
