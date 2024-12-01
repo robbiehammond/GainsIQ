@@ -17,11 +17,13 @@ import {
   ThemeProvider,
 } from '@mui/material';
 import { amber, indigo } from '@mui/material/colors';
-import {theme } from './style/theme';
+import { theme } from './style/theme';
 import { Set, SetUtils } from './models/Set';
+import { useApi } from './utils/ApiUtils';
 
 const WorkoutTracker: React.FC = () => {
-  const apiUrl = process.env.REACT_APP_API_URL || '';
+  const { fetchData } = useApi();
+
   const [exercises, setExercises] = useState<string[]>([]);
   const [searchTerm, setSearchTerm] = useState<string>('');
   const [newExercise, setNewExercise] = useState<string>('');
@@ -36,9 +38,7 @@ const WorkoutTracker: React.FC = () => {
   useEffect(() => {
     const fetchExercises = async () => {
       try {
-        const response = await fetch(`${apiUrl}/exercises`);
-        const data = await response.json();
-        console.log(data)
+        const data = await fetchData('/exercises');
         setExercises(data || []);
       } catch (error) {
         console.error('Error fetching exercises:', error);
@@ -47,7 +47,7 @@ const WorkoutTracker: React.FC = () => {
     };
 
     fetchExercises();
-  }, [apiUrl]);
+  }, [fetchData]);
 
   const filteredExercises = exercises.filter((exercise) =>
     exercise.toLowerCase().includes(searchTerm.toLowerCase())
@@ -64,23 +64,20 @@ const WorkoutTracker: React.FC = () => {
       exercise: selectedExercise,
       reps: reps.toString(),
       setNumber: parseInt(setNumber),
-      weight: convertedWeight
+      weight: convertedWeight,
     };
 
     try {
-      const response = await fetch(`${apiUrl}/sets/log`, {
-        method: 'POST', 
-        headers: {
-          'Content-Type': 'application/json',
-        },
+      await fetchData('/sets/log', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(SetUtils.toBackend(setData)),
       });
-      if (!response.ok) {
-        throw new Error('Failed to log workout');
-      }
 
       setConfirmationMessage(
-        `Logged: Set number ${setNumber} for ${selectedExercise}, ${reps} rep(s) with ${convertedWeight.toFixed(2)} lbs`
+        `Logged: Set number ${setNumber} for ${selectedExercise}, ${reps} rep(s) with ${convertedWeight.toFixed(
+          2
+        )} lbs`
       );
       setSnackbarOpen(true);
       setReps('');
@@ -93,17 +90,11 @@ const WorkoutTracker: React.FC = () => {
   const handleAddExercise = async () => {
     if (newExercise && !exercises.includes(newExercise)) {
       try {
-        const response = await fetch(`${apiUrl}/exercises`, {
+        await fetchData('/exercises', {
           method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
+          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ exercise_name: newExercise }),
         });
-
-        if (!response.ok) {
-          throw new Error('Failed to add exercise');
-        }
 
         setExercises([...exercises, newExercise]);
         setNewExercise('');
@@ -117,18 +108,12 @@ const WorkoutTracker: React.FC = () => {
 
   const handlePopLastSet = async () => {
     try {
-      const response = await fetch(`${apiUrl}/sets/pop`, {
+      const message = await fetchData('/sets/pop', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json' },
       });
+      console.log(message);
 
-      if (!response.ok) {
-        throw new Error('Failed to pop last set');
-      }
-
-      const message = await response.text();
       setConfirmationMessage(message);
       setSnackbarOpen(true);
     } catch (error) {
