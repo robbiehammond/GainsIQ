@@ -33,8 +33,10 @@ class GainsIQStack(Stack):
         if not openai_key:
             raise ValueError("openai_key not set in config file.")
 
+        is_preprod = env_name == "preprod"
+
         # Append '-preprod' to names if we're in preprod
-        suffix = "-preprod" if env_name == "preprod" else ""
+        suffix = "-preprod" if is_preprod else ""
 
         frontend_bucket = s3.Bucket(self, f"GainsIQFrontend{suffix}",
                                     website_index_document="index.html",
@@ -108,7 +110,8 @@ class GainsIQStack(Stack):
                                                  'EXERCISES_TABLE': exercises_table.table_name,
                                                  'S3_BUCKET_NAME': data_bucket.bucket_name,
                                                  'OPENAI_API_KEY': openai_key,  
-                                                 'SNS_TOPIC_ARN': notification_topic.topic_arn 
+                                                 'SNS_TOPIC_ARN': notification_topic.topic_arn,
+                                                 'IS_PREPROD': "YES" if is_preprod else "NO"
                                              })
         
         backend_lambda = _lambda.Function(self, f"GainsIQRustBackendHandler{suffix}",

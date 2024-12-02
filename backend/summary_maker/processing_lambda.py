@@ -14,10 +14,18 @@ sets_table_name = os.environ['SETS_TABLE']
 s3_bucket_name = os.environ['S3_BUCKET_NAME']
 openai_api_key = os.environ['OPENAI_API_KEY']
 sns_topic_arn = os.environ['SNS_TOPIC_ARN'] 
+is_preprod = os.environ['IS_PREPROD']
 
 sets_table = dynamodb.Table(sets_table_name)
 
 def lambda_handler(event, context):
+    # Don't generate any reports for preprod data.
+    if is_preprod == "YES":
+        return {
+        'statusCode': 200,
+        'body': json.dumps('Nothing done since we are in preprod.')
+    }
+
     workout_data = get_last_month_data()
     
     prompt = generate_prompt(workout_data)
