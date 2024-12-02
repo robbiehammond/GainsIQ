@@ -5,6 +5,7 @@ import { Button, Container, ThemeProvider } from '@mui/material';
 import WeightEntry from './WeightEntry';
 import { Route, Routes, Link, BrowserRouter } from 'react-router-dom';
 import { theme } from './style/theme';
+import SampleButton from './components/sample_button/SampleButton';
 
 
 const App: React.FC = () => {
