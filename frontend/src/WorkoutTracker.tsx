@@ -19,11 +19,11 @@ import {
 import { amber, indigo } from '@mui/material/colors';
 import { theme } from './style/theme';
 import { Set, SetUtils } from './models/Set';
-import { useApi } from './utils/ApiUtils';
+import { environment, useApi } from './utils/ApiUtils';
 
 const WorkoutTracker: React.FC = () => {
   const { fetchData } = useApi();
-
+  // TODO: Simply state management. Could just have [usersSet, setUsersSet] that gets updated on change.
   const [exercises, setExercises] = useState<string[]>([]);
   const [searchTerm, setSearchTerm] = useState<string>('');
   const [newExercise, setNewExercise] = useState<string>('');
@@ -121,12 +121,14 @@ const WorkoutTracker: React.FC = () => {
     }
   };
 
+
   return (
     <ThemeProvider theme={theme}>
       <Container maxWidth="md" sx={{ padding: '40px 20px' }}>
         <Paper elevation={3} sx={{ padding: '20px', backgroundColor: theme.palette.background.default }}>
           <Typography variant="h4" align="center" gutterBottom>
             Workout Tracker
+            <div>{environment === "preprod" ? "PREPROD - NOT REAL DATA" : ""}</div>
           </Typography>
 
           <form onSubmit={handleSubmit}>

@@ -23,7 +23,9 @@
   },
   "scripts": {
     "start": "react-scripts start",
+    "start:preprod": "REACT_APP_ENV=preprod react-scripts start",
     "build": "react-scripts build",
+    "build:preprod": "REACT_APP_ENV=preprod react-scripts build",
     "test": "react-scripts test",
     "eject": "react-scripts eject"
   },

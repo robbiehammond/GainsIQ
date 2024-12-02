@@ -2,10 +2,6 @@
 
 This document describes the API endpoints for the GainsIQ Workout Tracker. The base URL for the API is:
 
-```
-https://57gpuk0gme.execute-api.us-west-2.amazonaws.com/prod
-```
-
 ## Endpoints
 
 ### 1. Fetch Exercises

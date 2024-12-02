@@ -19,7 +19,7 @@ from aws_cdk.aws_apigateway import Cors
 
 class GainsIQStack(Stack):
 
-    def __init__(self, scope: Construct, id: str, **kwargs) -> None:
+    def __init__(self, scope: Construct, id: str, *, env_name: str = "prod", **kwargs) -> None:
         super().__init__(scope, id, **kwargs)
 
         with open('config.json') as config_file:
@@ -33,23 +33,24 @@ class GainsIQStack(Stack):
         if not openai_key:
             raise ValueError("openai_key not set in config file.")
 
-        
+        # Append '-preprod' to names if we're in preprod
+        suffix = "-preprod" if env_name == "preprod" else ""
 
-        frontend_bucket = s3.Bucket(self, "GainsIQFrontend",
+        frontend_bucket = s3.Bucket(self, f"GainsIQFrontend{suffix}",
                                     website_index_document="index.html",
                                     public_read_access=True,
                                     block_public_access=s3.BlockPublicAccess.BLOCK_ACLS)
 
-        s3deploy.BucketDeployment(self, "DeployWebsite",
+        s3deploy.BucketDeployment(self, f"DeployWebsite{suffix}",
                                   sources=[s3deploy.Source.asset("./frontend/build")],
                                   destination_bucket=frontend_bucket)
 
-        exercises_table = dynamodb.Table(self, "ExercisesTable",
+        exercises_table = dynamodb.Table(self, f"ExercisesTable{suffix}",
                                          partition_key=dynamodb.Attribute(
                                              name="exerciseName", type=dynamodb.AttributeType.STRING),
                                          billing_mode=dynamodb.BillingMode.PAY_PER_REQUEST)
 
-        sets_table = dynamodb.Table(self, "SetsTable",
+        sets_table = dynamodb.Table(self, f"SetsTable{suffix}",
                                     partition_key=dynamodb.Attribute(
                                         name="workoutId", type=dynamodb.AttributeType.STRING),
                                     sort_key=dynamodb.Attribute(
@@ -58,17 +59,18 @@ class GainsIQStack(Stack):
                                     point_in_time_recovery=True
                                     )
         
-        weight_table = dynamodb.Table(self, "WeightTable",
+        weight_table = dynamodb.Table(self, f"WeightTable{suffix}",
                                     partition_key=dynamodb.Attribute(
                                         name="timestamp", type=dynamodb.AttributeType.NUMBER),
                                     billing_mode=dynamodb.BillingMode.PAY_PER_REQUEST,
                                     point_in_time_recovery=True
                                     )
 
-        data_bucket = s3.Bucket(self, "GainsIQDataBucket",
+        data_bucket = s3.Bucket(self, f"GainsIQDataBucket{suffix}",
                                 versioned=True)
 
-        lambda_role = iam.Role(self, "GainsIQLambdaRole",
+        # IAM Role
+        lambda_role = iam.Role(self, f"GainsIQLambdaRole{suffix}",
                                assumed_by=iam.ServicePrincipal("lambda.amazonaws.com"),
                                managed_policies=[
                                    iam.ManagedPolicy.from_aws_managed_policy_name("service-role/AWSLambdaBasicExecutionRole")
@@ -91,11 +93,11 @@ class GainsIQStack(Stack):
 
         data_bucket.grant_read_write(lambda_role)
 
-        notification_topic = sns.Topic(self, "GainsIQNotifications")
+        notification_topic = sns.Topic(self, f"GainsIQNotifications{suffix}")
 
-        notification_topic.add_subscription(subs.EmailSubscription("robbiehammond3@gmail.com"))
+        notification_topic.add_subscription(subs.EmailSubscription(email))
 
-        processing_lambda = _lambda.Function(self, "GainsIQProcessingLambda",
+        processing_lambda = _lambda.Function(self, f"GainsIQProcessingLambda{suffix}",
                                              runtime=_lambda.Runtime.PYTHON_3_9,
                                              handler="processing_lambda.lambda_handler",
                                              code=_lambda.Code.from_asset("backend/summary_maker"),
@@ -109,11 +111,11 @@ class GainsIQStack(Stack):
                                                  'SNS_TOPIC_ARN': notification_topic.topic_arn 
                                              })
         
-        backend_lambda = _lambda.Function(self, "GainsIQRustBackendHandler",
+        backend_lambda = _lambda.Function(self, f"GainsIQRustBackendHandler{suffix}",
                                                runtime=_lambda.Runtime.PROVIDED_AL2023,  
                                                handler="bootstrap", 
                                                architecture=_lambda.Architecture.ARM_64,
-                                               code=_lambda.Code.from_asset("./backend/target/lambda/backend_rs"),  # Adjust path to compiled Rust lambda
+                                               code=_lambda.Code.from_asset("./backend/target/lambda/backend_rs"),
                                                role=lambda_role,
                                                timeout=Duration.minutes(5),
                                                environment={
@@ -124,9 +126,9 @@ class GainsIQStack(Stack):
 
         notification_topic.grant_publish(processing_lambda)
 
-        api = apigateway.RestApi(self, "GainsIQAPI",
-                                 rest_api_name="GainsIQ API",
-                                 description="API for GainsIQ workout tracker.",
+        api = apigateway.RestApi(self, f"GainsIQAPI{suffix}",
+                                 rest_api_name=f"GainsIQ API {env_name}",
+                                 description=f"API for GainsIQ workout tracker ({env_name}).",
                                  default_cors_preflight_options={
                                      "allow_origins": Cors.ALL_ORIGINS,
                                      "allow_methods": Cors.ALL_METHODS
@@ -149,7 +151,7 @@ class GainsIQStack(Stack):
         weight.add_method("GET", apigateway.LambdaIntegration(backend_lambda, proxy=True))
         weight.add_method("DELETE", apigateway.LambdaIntegration(backend_lambda, proxy=True))
 
-        monthly_rule = events.Rule(self, "GainsIQMonthlyRule",
+        monthly_rule = events.Rule(self, f"GainsIQMonthlyRule{suffix}",
                                    schedule=events.Schedule.cron(minute="0", hour="0", day="1", month="*", year="*"))
 
         monthly_rule.add_target(targets.LambdaFunction(processing_lambda))

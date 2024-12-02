@@ -14,9 +14,10 @@ import ExpandIcon from '@mui/icons-material/Expand';
 import { groupBy } from 'lodash'; 
 import { theme } from './style/theme';
 import { Set, SetUtils } from './models/Set';
+import { apiUrl } from './utils/ApiUtils';
 
 const LastMonthWorkouts: React.FC = () => {
-  const apiUrl = process.env.REACT_APP_API_URL || '';
+  // TODO: Abstract this!
   const [sets, setSets] = useState<Set[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
 

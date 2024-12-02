@@ -13,11 +13,11 @@ import {
 import { amber, indigo } from '@mui/material/colors';
 import { theme } from './style/theme';
 import { WeightEntryData } from './models/WeightEntryData';
+import { apiUrl } from './utils/ApiUtils';
 
 
 
 const WeightEntry: React.FC = () => {
-  const apiUrl = process.env.REACT_APP_API_URL || '';
   const [weight, setWeight] = useState<string>('');
   const [weights, setWeights] = useState<WeightEntryData[]>([]);
   const [confirmationMessage, setConfirmationMessage] = useState<string>('');
