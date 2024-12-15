@@ -21,7 +21,6 @@ pub trait DynamoDb {
         table_name: &str,
         workout_id: &str,
         timestamp: i64,
-        exercise: Option<String>,
         reps: Option<String>,
         sets: Option<i32>,
         weight: Option<f32>,
@@ -116,19 +115,14 @@ impl DynamoDb for Client {
         table_name: &str,
         workout_id: &str,
         timestamp: i64,
-        exercise: Option<String>,
         reps: Option<String>,
         sets: Option<i32>,
         weight: Option<f32>,
     ) -> Result<(), aws_sdk_dynamodb::Error> {
         let mut update_expression = String::new();
-        let mut expression_values = std::collections::HashMap::new();
+        let mut expression_values = HashMap::new();
+        let mut expression_names = HashMap::new(); // For reserved keywords
         let mut set_clauses = Vec::new();
-    
-        if let Some(e) = exercise {
-            set_clauses.push("exercise = :exercise".to_string());
-            expression_values.insert(":exercise".to_string(), AttributeValue::S(e));
-        }
     
         if let Some(r) = reps {
             set_clauses.push("reps = :reps".to_string());
@@ -136,8 +130,10 @@ impl DynamoDb for Client {
         }
     
         if let Some(s) = sets {
-            set_clauses.push("sets = :sets".to_string());
+            // Use #sets instead of sets bc sets is reserved. Pretty stupid.
+            set_clauses.push("#sets = :sets".to_string());
             expression_values.insert(":sets".to_string(), AttributeValue::N(s.to_string()));
+            expression_names.insert("#sets".to_string(), "sets".to_string()); 
         }
     
         if let Some(w) = weight {
@@ -147,26 +143,38 @@ impl DynamoDb for Client {
     
         if set_clauses.is_empty() {
             // No fields to update
-            return Ok(())
+            return Ok(());
         }
     
         update_expression = format!("SET {}", set_clauses.join(", "));
-    
-        self.update_item()
+
+        // Execute the update
+        match self.update_item()
             .table_name(table_name)
             .key("workoutId", AttributeValue::S(workout_id.to_string()))
             .key("timestamp", AttributeValue::N(timestamp.to_string()))
             .update_expression(update_expression)
             .set_expression_attribute_values(Some(expression_values))
+            .set_expression_attribute_names(Some(expression_names)) 
             .send()
-            .await?;
-    
-        Ok(())
+            .await
+            {
+                Ok(_) => Ok(()),
+                Err(e) => {
+                    // Log the error for debugging purposes
+                    eprintln!(
+                        "Error updating DynamoDB item. Workout ID: {}, Timestamp: {}, Error: {:?}",
+                        workout_id, timestamp, e
+                    );
+                    Err(e.into())
+                }
+            }
     }
 }
 
 #[derive(Deserialize, Debug)]
 pub struct RequestBody {
+    #[serde(rename = "workoutId")]
     pub workout_id: Option<String>,
     pub timestamp: Option<i64>,
     pub exercise_name: Option<String>,

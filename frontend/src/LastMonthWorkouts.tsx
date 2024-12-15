@@ -8,6 +8,8 @@ import {
   AccordionDetails,
   CircularProgress,
   Grid,
+  TextField,
+  Button,
   ThemeProvider,
 } from '@mui/material';
 import ExpandIcon from '@mui/icons-material/Expand';
@@ -17,9 +19,20 @@ import { Set, SetUtils } from './models/Set';
 import { apiUrl } from './utils/ApiUtils';
 
 const LastMonthWorkouts: React.FC = () => {
-  // TODO: Abstract this!
   const [sets, setSets] = useState<Set[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
+
+  // Track editing state
+  // We'll store the currently editing set by its unique keys: workoutId & timestamp
+  const [editingKeys, setEditingKeys] = useState<{workoutId?: string, timestamp?: number}>({});
+  const [editingValues, setEditingValues] = useState<Set>({
+    exercise: '',
+    weight: 0,
+    reps: '',
+    setNumber: 0,
+    timestamp: 0,
+    workoutId: ''
+  });
 
   useEffect(() => {
     const fetchWorkouts = async () => {
@@ -36,7 +49,6 @@ const LastMonthWorkouts: React.FC = () => {
         }
 
         const data = await response.json();
-
         setSets(data.map(SetUtils.fromBackend) || []);
         setLoading(false);
       } catch (error) {
@@ -47,22 +59,91 @@ const LastMonthWorkouts: React.FC = () => {
     };
 
     fetchWorkouts();
-  }, [apiUrl]);
+  }, []);
+
+  const startEditing = (set: Set) => {
+    setEditingKeys({ workoutId: set.workoutId, timestamp: set.timestamp });
+    setEditingValues({ ...set }); // pre-fill with existing values
+  };
+
+  const cancelEditing = () => {
+    setEditingKeys({});
+    setEditingValues({
+      exercise: '',
+      weight: 0,
+      reps: '',
+      setNumber: 0,
+      timestamp: 0,
+      workoutId: ''
+    });
+  };
+
+  const handleChange = (field: keyof Set, value: string | number) => {
+    setEditingValues((prev) => ({
+      ...prev,
+      [field]: value
+    }));
+  };
+
+  const saveEdits = async () => {
+    if (!editingKeys.workoutId || !editingKeys.timestamp) return;
+
+    const payload = {
+      workoutId: editingKeys.workoutId,
+      timestamp: Number(editingKeys.timestamp),
+      exercise: editingValues.exercise,
+      reps: editingValues.reps,
+      sets: Number(editingValues.setNumber),
+      weight: Number(editingValues.weight)
+    };
+      console.log(JSON.stringify(payload));
+
+    try {
+      const response = await fetch(`${apiUrl}/sets/edit`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(payload),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to update set');
+      }
+
+      // Update local sets state
+      setSets((prevSets) =>
+        prevSets.map((item) =>
+          item.workoutId === editingKeys.workoutId && item.timestamp === editingKeys.timestamp
+            ? { ...item, ...editingValues }
+            : item
+        )
+      );
+
+      // Exit edit mode
+      cancelEditing();
+    } catch (error) {
+      console.error('Error updating set:', error);
+    }
+  };
 
   const groupWorkoutsByDate = (sets: Set[]) => {
     return groupBy(sets, (set) =>
-      new Date(parseInt(set.timestamp || '0') * 1000).toLocaleDateString()
+      new Date((set.timestamp|| 0) * 1000).toLocaleDateString()
     );
   };
 
   const groupedSets = groupWorkoutsByDate(sets);
 
-    const sortedDates = Object.keys(groupedSets).sort((a, b) => {
-        const dateA = new Date(a).getTime();
-        const dateB = new Date(b).getTime();
-        return dateB - dateA; 
-      }
-    );
+  const sortedDates = Object.keys(groupedSets).sort((a, b) => {
+      const dateA = new Date(a).getTime();
+      const dateB = new Date(b).getTime();
+      return dateB - dateA; 
+    }
+  );
+
+  const isEditing = (set: Set) =>
+    editingKeys.workoutId === set.workoutId && editingKeys.timestamp === set.timestamp;
 
   return (
     <ThemeProvider theme={theme}>
@@ -81,25 +162,67 @@ const LastMonthWorkouts: React.FC = () => {
               {sortedDates.length > 0 ? (
                 sortedDates.map((date, index) => (
                   <Accordion key={index}>
-                    <AccordionSummary expandIcon={<ExpandIcon></ExpandIcon>}>
+                    <AccordionSummary expandIcon={<ExpandIcon />}>
                       <Typography>{date}</Typography>
                     </AccordionSummary>
                     <AccordionDetails>
-                      {groupedSets[date].map((set, setIndex) => (
-                        <Paper
-                          key={setIndex}
-                          elevation={1}
-                          sx={{ padding: '10px', marginBottom: '10px' }}
-                        >
-                          <Typography variant="h6">{set.exercise}</Typography>
-                          <Typography>
-                            Set #: {set.setNumber}, Reps: {set.reps}, Weight: {set.weight} lbs
-                          </Typography>
-                          <Typography>
-                            Time: {new Date(parseInt(set.timestamp || '0') * 1000).toLocaleTimeString()}
-                          </Typography>
-                        </Paper>
-                      ))}
+                      {groupedSets[date].map((setItem, setIndex) => {
+                        if (isEditing(setItem)) {
+                          return (
+                            <Paper
+                              key={setIndex}
+                              elevation={1}
+                              sx={{ padding: '10px', marginBottom: '10px' }}
+                            >
+                              <Typography variant="h6">{setItem.exercise}</Typography>
+                              <TextField
+                                label="Reps"
+                                value={editingValues.reps}
+                                onChange={(e) => handleChange('reps', e.target.value)}
+                                fullWidth
+                                sx={{ marginBottom: '10px' }}
+                              />
+                              <TextField
+                                label="Set Number"
+                                type="number"
+                                value={editingValues.setNumber}
+                                onChange={(e) => handleChange('setNumber', Number(e.target.value))}
+                                fullWidth
+                                sx={{ marginBottom: '10px' }}
+                              />
+                              <TextField
+                                label="Weight (lbs)"
+                                type="number"
+                                value={editingValues.weight}
+                                onChange={(e) => handleChange('weight', Number(e.target.value))}
+                                fullWidth
+                                sx={{ marginBottom: '10px' }}
+                              />
+                              <Button variant="contained" color="primary" onClick={saveEdits} sx={{ marginRight: '10px' }}>
+                                Save
+                              </Button>
+                              <Button variant="outlined" onClick={cancelEditing}>
+                                Cancel
+                              </Button>
+                            </Paper>
+                          );
+                        } else {
+                          return (
+                            <Paper
+                              key={setIndex}
+                              elevation={1}
+                              sx={{ padding: '10px', marginBottom: '10px' }}
+                            >
+                              <Typography variant="h6">{setItem.exercise}</Typography>
+                              <Typography>Set #: {setItem.setNumber}, Reps: {setItem.reps}, Weight: {setItem.weight} lbs</Typography>
+                              <Typography>Time: {new Date((setItem.timestamp || 0) * 1000).toLocaleString()}</Typography>
+                              <Button variant="text" onClick={() => startEditing(setItem)}>
+                                Edit
+                              </Button>
+                            </Paper>
+                          );
+                        }
+                      })}
                     </AccordionDetails>
                   </Accordion>
                 ))

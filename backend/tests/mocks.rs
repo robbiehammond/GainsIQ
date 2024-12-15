@@ -24,7 +24,6 @@ mock! {
             table_name: &str,
             workout_id: &str,
             timestamp: i64,
-            exercise: Option<String>,
             reps: Option<String>,
             sets: Option<i32>,
             weight: Option<f32>,

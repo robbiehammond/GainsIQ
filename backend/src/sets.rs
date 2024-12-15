@@ -118,13 +118,15 @@ pub async fn edit_set(
     table_name: &str,
     workout_id: String,
     timestamp: i64,
-    exercise: Option<String>,
     reps: Option<String>,
     sets: Option<i32>,
     weight: Option<f32>,
 ) -> Response {
-    match client.update_set(table_name, &workout_id, timestamp, exercise, reps, sets, weight).await {
+    match client.update_set(table_name, &workout_id, timestamp, reps, sets, weight).await {
         Ok(_) => success_response(200, "Set updated successfully".to_string()),
-        Err(e) => error_response(500, format!("Error updating set: {:?}", e)),
+        Err(e) => {
+            println!("Updating set didn't work: {}", e);
+            error_response(500, format!("Error updating set: {:?}", e))
+        }
     }
 }

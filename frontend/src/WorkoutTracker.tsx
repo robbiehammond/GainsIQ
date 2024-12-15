@@ -66,6 +66,7 @@ const WorkoutTracker: React.FC = () => {
       setNumber: parseInt(setNumber),
       weight: convertedWeight,
     };
+    console.log(JSON.stringify(SetUtils.toBackend(setData)));
 
     try {
       await fetchData('/sets/log', {

@@ -22,6 +22,7 @@ pub async fn handler(event: LambdaEvent<Value>) -> Result<Value, Error> {
         Some(Value::String(body)) => serde_json::from_str::<Value>(body).unwrap_or(Value::Null),
         _ => Value::Null,
     };
+    println!("Raw Request: {}", request_body_json);
 
     let body: RequestBody = serde_json::from_value(request_body_json.clone()).unwrap_or_else(|_| {
         warn!("Failed to parse request body, using empty defaults");
@@ -75,7 +76,6 @@ pub async fn handler(event: LambdaEvent<Value>) -> Result<Value, Error> {
                 &sets_table_name,
                 workout_id,
                 timestamp,
-                body.exercise.clone(),
                 body.reps.clone(),
                 body.sets,
                 body.weight

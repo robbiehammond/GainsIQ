@@ -3,7 +3,6 @@ mod mocks;
 use aws_sdk_dynamodb::error::BuildError;
 use aws_sdk_dynamodb::Error as DynamoError;
 use aws_sdk_dynamodb::types::AttributeValue;
-use backend_rs::utils::Response;
 use backend_rs::sets::{log_set, get_last_month_workouts, pop_last_set, edit_set};
 use crate::mocks::MockDynamoDbMock;
 use std::collections::HashMap;
@@ -118,8 +117,8 @@ async fn test_pop_last_set_error() {
 async fn test_edit_set_success() {
     let mut mock = MockDynamoDbMock::new();
     mock.expect_update_set()
-        .returning(|_, _, _, _, _, _, _| Ok(()));
-    let response = edit_set(&mock, "WorkoutsTable", "test-uuid".to_string(), 1234567890, Some("Squat".to_string()), Some("8".to_string()), Some(3), Some(315.0)).await;
+        .returning(|_, _, _, _, _, _| Ok(()));
+    let response = edit_set(&mock, "WorkoutsTable", "test-uuid".to_string(), 1234567890, Some("8".to_string()), Some(3), Some(315.0)).await;
     assert_eq!(response.statusCode, 200);
     assert!(response.body.contains("Set updated successfully"));
 }
@@ -128,9 +127,9 @@ async fn test_edit_set_success() {
 async fn test_edit_set_error() {
     let mut mock = MockDynamoDbMock::new();
     mock.expect_update_set()
-        .returning(|_, _, _, _, _, _, _| Err(generic_build_error()));
+        .returning(|_, _, _, _, _, _| Err(generic_build_error()));
 
-    let response = edit_set(&mock, "WorkoutsTable", "test-uuid".to_string(), 1234567890, None, Some("8".to_string()), None, None).await;
+    let response = edit_set(&mock, "WorkoutsTable", "test-uuid".to_string(), 1234567890, None, None, None).await;
     assert_eq!(response.statusCode, 500);
     assert!(response.body.contains("Error updating set"));
 }
