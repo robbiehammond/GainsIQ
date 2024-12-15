@@ -27,3 +27,14 @@ pub async fn get_exercises(client: &dyn DynamoDb, table_name: &str) -> Response 
         Err(e) => error_response(500, format!("Error fetching exercises: {:?}", e)),
     }
 }
+
+pub async fn delete_exercise(client: &dyn DynamoDb, table_name: &str, exercise_name: &str) -> Response {
+    if exercise_name.is_empty() {
+        return error_response(400, "Invalid input: exercise_name is required".to_string());
+    }
+
+    match client.delete_exercise(table_name, exercise_name).await {
+        Ok(_) => success_response(200, format!("Exercise {} deleted successfully", exercise_name)),
+        Err(e) => error_response(500, format!("Error deleting exercise: {:?}", e)),
+    }
+}

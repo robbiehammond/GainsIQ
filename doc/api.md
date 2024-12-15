@@ -73,6 +73,42 @@ Adds a new exercise to the database.
 
 ---
 
+#### 3. Delete an Exercise
+
+**DELETE /exercises**
+
+Deletes an exercise from the database.
+
+**Request Body:**
+```json
+{
+  "exercise_name": "Bench Press"
+}
+```
+
+**Response:**
+
+- **200 OK:** Successfully deleted the exercise.
+  ```json
+  {
+    "message": "Exercise Bench Press deleted successfully"
+  }
+  ```
+
+- **400 Bad Request:** Missing or invalid exercise name.
+  ```json
+  {
+    "message": "Invalid input: exercise_name is required"
+  }
+  ```
+
+- **500 Internal Server Error:** There was an issue deleting the exercise.
+  ```json
+  {
+    "message": "Error deleting exercise"
+  }
+  ```
+
 ### Sets
 
 #### 1. Log a Workout Set

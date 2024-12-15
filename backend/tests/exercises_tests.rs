@@ -3,7 +3,7 @@ mod mocks;
 use aws_sdk_dynamodb::error::BuildError;
 use aws_sdk_dynamodb::Error as DynamoError;
 use aws_sdk_dynamodb::types::AttributeValue;
-use backend_rs::exercises::{add_exercise, get_exercises};
+use backend_rs::exercises::{add_exercise, delete_exercise, get_exercises};
 use crate::mocks::MockDynamoDbMock;
 use std::collections::HashMap;
 use std::io;
@@ -58,4 +58,35 @@ async fn test_get_exercises_error() {
     let response = get_exercises(&mock, "ExercisesTable").await;
     assert_eq!(response.statusCode, 500);
     assert!(response.body.contains("Error fetching exercises"));
+}
+
+#[tokio::test]
+async fn test_delete_exercise_success() {
+    let mut mock = MockDynamoDbMock::new();
+    mock.expect_delete_exercise()
+        .returning(|_, _| Ok(())); // Mock successful deletion
+
+    let response = delete_exercise(&mock, "ExercisesTable", "Pull-Up").await;
+    assert_eq!(response.statusCode, 200);
+    assert!(response.body.contains("Exercise Pull-Up deleted successfully"));
+}
+
+#[tokio::test]
+async fn test_delete_exercise_error() {
+    let mut mock = MockDynamoDbMock::new();
+    mock.expect_delete_exercise()
+        .returning(|_, _| Err(generic_build_error())); // Mock an error
+
+    let response = delete_exercise(&mock, "ExercisesTable", "Pull-Up").await;
+    assert_eq!(response.statusCode, 500);
+    assert!(response.body.contains("Error deleting exercise"));
+}
+
+#[tokio::test]
+async fn test_delete_exercise_invalid_input() {
+    let mock = MockDynamoDbMock::new();
+
+    let response = delete_exercise(&mock, "ExercisesTable", "").await; // Empty exercise name
+    assert_eq!(response.statusCode, 400);
+    assert!(response.body.contains("Invalid input: exercise_name is required"));
 }

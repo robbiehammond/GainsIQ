@@ -25,6 +25,8 @@ pub trait DynamoDb {
         sets: Option<i32>,
         weight: Option<f32>,
     ) -> Result<(), aws_sdk_dynamodb::Error>;
+    async fn delete_exercise(&self, table_name: &str, exercise_name: &str) -> Result<(), aws_sdk_dynamodb::Error>;
+
 }
 
 
@@ -169,6 +171,15 @@ impl DynamoDb for Client {
                     Err(e.into())
                 }
             }
+    }
+
+    async fn delete_exercise(&self, table_name: &str, exercise_name: &str) -> Result<(), aws_sdk_dynamodb::Error> {
+        self.delete_item()
+            .table_name(table_name)
+            .key("exerciseName", AttributeValue::S(exercise_name.to_string()))
+            .send()
+            .await?;
+        Ok(())
     }
 }
 

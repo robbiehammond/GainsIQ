@@ -140,6 +140,7 @@ class GainsIQStack(Stack):
         exercises = api.root.add_resource("exercises")
         exercises.add_method("POST", apigateway.LambdaIntegration(backend_lambda, proxy=True))
         exercises.add_method("GET", apigateway.LambdaIntegration(backend_lambda, proxy=True))
+        exercises.add_method("DELETE", apigateway.LambdaIntegration(backend_lambda, proxy=True))
 
         sets = api.root.add_resource("sets")
         log = sets.add_resource("log")

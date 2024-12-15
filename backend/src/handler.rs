@@ -52,6 +52,15 @@ pub async fn handler(event: LambdaEvent<Value>) -> Result<Value, Error> {
             let response = exercises::add_exercise(&dynamodb_client, &exercises_table_name, &body.exercise_name.unwrap()).await;
             Ok(serde_json::to_value(response)?)
         }
+        ("DELETE", "/exercises") => {
+            let response = exercises::delete_exercise(
+                &dynamodb_client,
+                &exercises_table_name,
+                &body.exercise_name.unwrap_or_default(),
+            )
+            .await;
+            Ok(serde_json::to_value(response)?)
+        }
 
         // Set endpoints
         ("POST", "/sets/log") => {
