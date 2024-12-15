@@ -16,6 +16,16 @@ pub trait DynamoDb {
     async fn put_weight(&self, table_name: &str, item: HashMap<String, AttributeValue>) -> Result<(), aws_sdk_dynamodb::Error>;
     async fn scan_weights(&self, table_name: &str) -> Result<Vec<HashMap<String, AttributeValue>>, aws_sdk_dynamodb::Error>;
     async fn delete_weight(&self, table_name: &str, timestamp: &str) -> Result<(), aws_sdk_dynamodb::Error>;
+    async fn update_set(
+        &self,
+        table_name: &str,
+        workout_id: &str,
+        timestamp: i64,
+        exercise: Option<String>,
+        reps: Option<String>,
+        sets: Option<i32>,
+        weight: Option<f32>,
+    ) -> Result<(), aws_sdk_dynamodb::Error>;
 }
 
 
@@ -100,10 +110,65 @@ impl DynamoDb for Client {
             .await?;
         Ok(())
     }
+
+    async fn update_set(
+        &self,
+        table_name: &str,
+        workout_id: &str,
+        timestamp: i64,
+        exercise: Option<String>,
+        reps: Option<String>,
+        sets: Option<i32>,
+        weight: Option<f32>,
+    ) -> Result<(), aws_sdk_dynamodb::Error> {
+        let mut update_expression = String::new();
+        let mut expression_values = std::collections::HashMap::new();
+        let mut set_clauses = Vec::new();
+    
+        if let Some(e) = exercise {
+            set_clauses.push("exercise = :exercise".to_string());
+            expression_values.insert(":exercise".to_string(), AttributeValue::S(e));
+        }
+    
+        if let Some(r) = reps {
+            set_clauses.push("reps = :reps".to_string());
+            expression_values.insert(":reps".to_string(), AttributeValue::S(r));
+        }
+    
+        if let Some(s) = sets {
+            set_clauses.push("sets = :sets".to_string());
+            expression_values.insert(":sets".to_string(), AttributeValue::N(s.to_string()));
+        }
+    
+        if let Some(w) = weight {
+            set_clauses.push("weight = :weight".to_string());
+            expression_values.insert(":weight".to_string(), AttributeValue::N(w.to_string()));
+        }
+    
+        if set_clauses.is_empty() {
+            // No fields to update
+            return Ok(())
+        }
+    
+        update_expression = format!("SET {}", set_clauses.join(", "));
+    
+        self.update_item()
+            .table_name(table_name)
+            .key("workoutId", AttributeValue::S(workout_id.to_string()))
+            .key("timestamp", AttributeValue::N(timestamp.to_string()))
+            .update_expression(update_expression)
+            .set_expression_attribute_values(Some(expression_values))
+            .send()
+            .await?;
+    
+        Ok(())
+    }
 }
 
 #[derive(Deserialize, Debug)]
 pub struct RequestBody {
+    pub workout_id: Option<String>,
+    pub timestamp: Option<i64>,
     pub exercise_name: Option<String>,
     pub exercise: Option<String>,
     pub reps: Option<String>,

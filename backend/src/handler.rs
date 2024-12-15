@@ -26,6 +26,8 @@ pub async fn handler(event: LambdaEvent<Value>) -> Result<Value, Error> {
     let body: RequestBody = serde_json::from_value(request_body_json.clone()).unwrap_or_else(|_| {
         warn!("Failed to parse request body, using empty defaults");
         RequestBody {
+            timestamp: request_body_json.get("timestamp").and_then(|v| v.as_u64().map(|v| v as i64)),
+            workout_id: request_body_json.get("workoutId").and_then(|v| v.as_str().map(String::from)),
             exercise_name: request_body_json.get("exercise_name").and_then(|v| v.as_str().map(String::from)),
             exercise: request_body_json.get("exercise").and_then(|v| v.as_str().map(String::from)),
             reps: request_body_json.get("reps").and_then(|v| v.as_str().map(String::from)),
@@ -61,6 +63,23 @@ pub async fn handler(event: LambdaEvent<Value>) -> Result<Value, Error> {
         }
         ("POST", "/sets/pop") => {
             let response = sets::pop_last_set(&dynamodb_client, &sets_table_name).await;
+            Ok(serde_json::to_value(response)?)
+        }
+        ("PUT", "/sets/edit") => {
+            // TODO: Error handling here.
+            let workout_id = body.workout_id.unwrap_or("".to_string());
+            let timestamp= body.timestamp.unwrap_or(0);
+    
+            let response = sets::edit_set(
+                &dynamodb_client,
+                &sets_table_name,
+                workout_id,
+                timestamp,
+                body.exercise.clone(),
+                body.reps.clone(),
+                body.sets,
+                body.weight
+            ).await;
             Ok(serde_json::to_value(response)?)
         }
 

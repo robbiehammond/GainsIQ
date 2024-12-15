@@ -55,7 +55,15 @@ pub async fn get_last_month_workouts(client: &dyn DynamoDb, table_name: &str) ->
                 .map(|item| {
                     let mut workout = HashMap::new();
 
-                    workout.insert("exercise".to_string(), item["exercise"].as_s().unwrap().to_string());
+                    workout.insert(
+                        "workoutId".to_string(),
+                        item["workoutId"].as_s().unwrap().to_string()
+                    );
+
+                    workout.insert(
+                        "exercise".to_string(),
+                        item["exercise"].as_s().unwrap().to_string()
+                    );
 
                     if let Some(reps_value) = item.get("reps") {
                         workout.insert("reps".to_string(), extract_string_or_number(reps_value));
@@ -69,12 +77,16 @@ pub async fn get_last_month_workouts(client: &dyn DynamoDb, table_name: &str) ->
                         workout.insert("weight".to_string(), extract_string_or_number(weight_value));
                     }
 
-                    workout.insert("timestamp".to_string(), item["timestamp"].as_n().unwrap().to_string());
+                    workout.insert(
+                        "timestamp".to_string(), 
+                        item["timestamp"].as_n().unwrap().to_string()
+                    );
 
                     workout
                 })
                 .collect();
 
+            // Sort by timestamp ascending
             workouts.sort_by_key(|workout| workout["timestamp"].parse::<i64>().unwrap_or(0));
 
             success_response(200, serde_json::to_string(&workouts).unwrap())
@@ -98,5 +110,21 @@ pub async fn pop_last_set(client: &dyn DynamoDb, table_name: &str) -> Response {
             }
         }
         Err(e) => error_response(500, format!("Error scanning table: {:?}", e)),
+    }
+}
+
+pub async fn edit_set(
+    client: &dyn DynamoDb,
+    table_name: &str,
+    workout_id: String,
+    timestamp: i64,
+    exercise: Option<String>,
+    reps: Option<String>,
+    sets: Option<i32>,
+    weight: Option<f32>,
+) -> Response {
+    match client.update_set(table_name, &workout_id, timestamp, exercise, reps, sets, weight).await {
+        Ok(_) => success_response(200, "Set updated successfully".to_string()),
+        Err(e) => error_response(500, format!("Error updating set: {:?}", e)),
     }
 }
