@@ -82,6 +82,12 @@ pub async fn handler(event: LambdaEvent<Value>) -> Result<Value, Error> {
             ).await;
             Ok(serde_json::to_value(response)?)
         }
+        ("DELETE", "/sets") => {
+            let workout_id = body.workout_id.unwrap_or_else(|| "".to_string());
+            let timestamp = body.timestamp.unwrap_or(0);
+            let response = sets::delete_set(&dynamodb_client, &sets_table_name, workout_id, timestamp).await;
+            Ok(serde_json::to_value(response)?)
+        }
 
         // Weight endpoints 
         ("POST", "/weight") => {

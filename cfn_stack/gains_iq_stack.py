@@ -146,6 +146,7 @@ class GainsIQStack(Stack):
         log.add_method("POST", apigateway.LambdaIntegration(backend_lambda, proxy=True))
         pop_set = sets.add_resource("pop")
         pop_set.add_method("POST", apigateway.LambdaIntegration(backend_lambda, proxy=True))
+        sets.add_method("DELETE", apigateway.LambdaIntegration(backend_lambda, proxy=True))
         last_month = sets.add_resource("last_month")
         last_month.add_method("GET", apigateway.LambdaIntegration(backend_lambda, proxy=True))
         edit = sets.add_resource("edit")

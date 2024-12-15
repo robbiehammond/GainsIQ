@@ -17,6 +17,8 @@ import { groupBy } from 'lodash';
 import { theme } from './style/theme';
 import { Set, SetUtils } from './models/Set';
 import { apiUrl } from './utils/ApiUtils';
+import DeleteIcon from '@mui/icons-material/Delete'; 
+
 
 const LastMonthWorkouts: React.FC = () => {
   const [sets, setSets] = useState<Set[]>([]);
@@ -85,6 +87,38 @@ const LastMonthWorkouts: React.FC = () => {
     }));
   };
 
+  const deleteSet = async (set: Set) => {
+    if (!set.workoutId || !set.timestamp) return;
+  
+    const payload = {
+      workoutId: set.workoutId,
+      timestamp: Number(set.timestamp),
+    };
+  
+    try {
+      const response = await fetch(`${apiUrl}/sets`, {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(payload),
+      });
+  
+      if (!response.ok) {
+        throw new Error('Failed to delete set');
+      }
+  
+      setSets((prevSets) =>
+        prevSets.filter(
+          (item) =>
+            !(item.workoutId === set.workoutId && item.timestamp === set.timestamp)
+        )
+      );
+    } catch (error) {
+      console.error('Error deleting set:', error);
+    }
+  };
+
   const saveEdits = async () => {
     if (!editingKeys.workoutId || !editingKeys.timestamp) return;
 
@@ -120,7 +154,6 @@ const LastMonthWorkouts: React.FC = () => {
         )
       );
 
-      // Exit edit mode
       cancelEditing();
     } catch (error) {
       console.error('Error updating set:', error);
@@ -219,6 +252,14 @@ const LastMonthWorkouts: React.FC = () => {
                               <Button variant="text" onClick={() => startEditing(setItem)}>
                                 Edit
                               </Button>
+                              <Button
+                                variant="text"
+                                color="error"
+                                onClick={() => deleteSet(setItem)}
+                                startIcon={<DeleteIcon />}
+                              >
+                                Delete
+                            </Button>
                             </Paper>
                           );
                         }

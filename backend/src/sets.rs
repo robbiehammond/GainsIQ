@@ -130,3 +130,22 @@ pub async fn edit_set(
         }
     }
 }
+
+pub async fn delete_set(
+    client: &dyn DynamoDb,
+    table_name: &str,
+    workout_id: String,
+    timestamp: i64,
+) -> Response {
+    if workout_id.is_empty() || timestamp == 0 {
+        return error_response(400, "Invalid input: workoutId and timestamp are required".to_string());
+    }
+
+    match client
+        .delete_set(table_name, &workout_id, &timestamp.to_string())
+        .await
+    {
+        Ok(_) => success_response(200, format!("Set with workoutId {} and timestamp {} deleted successfully", workout_id, timestamp)),
+        Err(e) => error_response(500, format!("Error deleting set: {:?}", e)),
+    }
+}

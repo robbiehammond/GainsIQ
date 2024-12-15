@@ -133,3 +133,24 @@ async fn test_edit_set_error() {
     assert_eq!(response.statusCode, 500);
     assert!(response.body.contains("Error updating set"));
 }
+
+#[tokio::test]
+async fn test_delete_set_success() {
+    let mut mock = MockDynamoDbMock::new();
+    let workout_id = "test-uuid".to_string();
+    let timestamp = "1234567890".to_string();
+
+    let w_id_clone = workout_id.clone();
+    let timestamp_clone = timestamp.clone();
+
+    mock.expect_delete_set()
+        .withf(move |table_name, id, ts| {
+            table_name == "WorkoutsTable" && id == &workout_id && ts == &timestamp
+        })
+        .returning(|_, _, _| Ok(()));
+
+    let response = backend_rs::sets::delete_set(&mock, "WorkoutsTable", w_id_clone, timestamp_clone.parse::<i64>().unwrap()).await;
+
+    assert_eq!(response.statusCode, 200);
+    assert!(response.body.contains("deleted successfully"));
+}
