@@ -67,6 +67,12 @@ class GainsIQStack(Stack):
                                     billing_mode=dynamodb.BillingMode.PAY_PER_REQUEST,
                                     point_in_time_recovery=True
                                     )
+        
+        analyses_table = dynamodb.Table(self, f"AnalysesTable{suffix}",
+                                        partition_key=dynamodb.Attribute(
+                                            name="timestamp", type=dynamodb.AttributeType.NUMBER),
+                                        billing_mode=dynamodb.BillingMode.PAY_PER_REQUEST
+                                        )
 
         data_bucket = s3.Bucket(self, f"GainsIQDataBucket{suffix}",
                                 versioned=True)
@@ -78,6 +84,7 @@ class GainsIQStack(Stack):
                                    iam.ManagedPolicy.from_aws_managed_policy_name("service-role/AWSLambdaBasicExecutionRole")
                                ])
 
+        # Could do at some point: make a specific roles for the API backend and the processing lambda.
         lambda_role.add_to_policy(iam.PolicyStatement(
             effect=iam.Effect.ALLOW,
             actions=[
@@ -90,7 +97,7 @@ class GainsIQStack(Stack):
                 "dynamodb:UpdateItem",
                 "dynamodb:DeleteItem"
             ],
-            resources=[exercises_table.table_arn, sets_table.table_arn, weight_table.table_arn]
+            resources=[exercises_table.table_arn, sets_table.table_arn, weight_table.table_arn, analyses_table.table_arn]
         ))
 
         data_bucket.grant_read_write(lambda_role)
@@ -108,6 +115,7 @@ class GainsIQStack(Stack):
                                              environment={
                                                  'SETS_TABLE': sets_table.table_name,
                                                  'EXERCISES_TABLE': exercises_table.table_name,
+                                                 'ANALYSES_TABLE': analyses_table.table_name,
                                                  'S3_BUCKET_NAME': data_bucket.bucket_name,
                                                  'OPENAI_API_KEY': openai_key,  
                                                  'SNS_TOPIC_ARN': notification_topic.topic_arn,
