@@ -1,0 +1,36 @@
+/* Apply the Figtree font globally */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+    font-weight: 400;
+    font-family: "Figtree", sans-serif;
+}
+
+.bold-fig-font {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+    font-weight: 600;
+    font-family: "Figtree", sans-serif;
+}
+
+.extra-bold-fig-font {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+    font-weight: 800;
+    font-family: "Figtree", sans-serif;
+}
+
+.do-font {
+    font-family: "Do Hyeon", sans-serif;
+    font-weight: 400;
+    font-style: normal;
+}
+
+.bold-do-font {
+    font-family: "Do Hyeon", sans-serif;
+    font-weight: 600;
+    font-style: normal;
+}

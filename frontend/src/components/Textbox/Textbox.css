@@ -1,0 +1,30 @@
+:root {
+    --background: #C2DBFF;
+    --footer-background: #59678E;
+    --text-header: #465170;
+    --text-calendar: #465170;
+    --text-rows: #5089D7;
+    --light-blue: #C2DBFF;
+    --med-blue: #5089D7;
+    --button-text: #5089D7;
+    --button-hover-light: #d7e8ff;
+    --button-hover-med: #60adff;
+    --button-hover-dark: #96bbef;
+  }
+
+.outline {
+  background-color: transparent;
+  color: #5089D7;
+  border: 2px solid #5089D7;
+  padding: 0px 6px;
+  border-radius: 24px;
+  cursor: pointer;
+  align-items: center; /* Vertical center */
+  justify-content: center; /* Horizontal center */
+  width: 70px; /* Fixed width */
+  height: 30px; /* Fixed height */
+  box-sizing: border-box;
+  text-align: center; /* Ensures text is centered */
+}
+
+

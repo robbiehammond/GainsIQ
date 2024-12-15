@@ -1,0 +1,40 @@
+:root {
+    --background: #C2DBFF;
+    --footer-background: #59678E;
+    --text-header: #465170;
+    --text-calendar: #465170;
+    --text-rows: #5089D7;
+    --light-blue: #C2DBFF;
+    --med-blue: #5089D7;
+    --button-text: #5089D7;
+    --button-hover-light: #d7e8ff;
+    --button-hover-med: #60adff;
+    --button-hover-dark: #96bbef;
+  }
+
+.filled {
+    background-color: var(--light-blue);
+    color: var(--button-active);
+    border: none;
+    padding: 6px 15px;
+    border-radius: 24px;
+    cursor: pointer;
+    appearance: none; /* Removes default dropdown arrow */
+    -webkit-appearance: none; /* For Safari */
+    -moz-appearance: none; /* For Firefox */
+    transition: background-color 0.3s ease; /* Adds transition effect */
+    align-content: center; /* Vertical center */
+    justify-content: center; /* Horizontal center */
+
+    width: 60px; /* Fixed width */
+    height: 30px; /* Fixed height */
+
+    /* Centering styles */
+    align-items: center; /* Vertical alignment */
+    justify-content: center; /* Horizontal alignment */
+    text-align: center; /* Ensures text is centered */
+}
+
+  .filled:hover {
+    background-color: var(--button-hover-light); /* Darken the background on hover */
+  }

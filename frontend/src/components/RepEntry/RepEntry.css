@@ -1,0 +1,5 @@
+.repEntry {
+    display: flex;
+    flex-direction: row; /* Stack the children vertically */
+    gap: 8px; /* Adds 8px space between each child element */
+}
