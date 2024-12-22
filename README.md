@@ -3,8 +3,14 @@
 ## What is this?
 A simple web-based workout tracker. You'll get sent a monthly email summary of your progress, analyzed by an LLM.
 
+## Dependencies 
+Your system needs to be able to build Rust, TypeScript, and Python code. Most dependencies will be acquired automatically when building with cargo/npm, but you'll have to manually get the following first:
+- [Cargo Lambda](https://www.cargo-lambda.info/). Need this to build and deploy the backend.
+- An OpenAPI account. You'll need an API key to actually be able to get workout summaries.  
+
 ## Deploying 
 Before you can do `cdk deploy`, you must do a few things:
+ - Install aforementend dependencies, and also the python dependencies (in requirements.txt). I'd recommend using a virtual environement for all this.
  - Create a config.json file in the top-level directory. This is used by the CDK stack. It needs the following format: 
 ```
 {
@@ -29,11 +35,5 @@ Just so I remember vaguely how this works:
 ![](doc/GainsIQ.png)
 
 A note: You can deploy a preprod and a prod version. Here's how that kinda works:
-- duplicated prod stack (via the `build_and_deploy.sh` script)
-- After initial deploy frontend was still pointing to prod backend. Need to add `REACT_APP_API_URL_PREPROD={preprod endpoint}` to the frontend `.env` for it to be pointing to the right thing. After this, the preprod stack is fully "preprod".
-- Both stacks have the same components; only code difference is the names of the stuff declared in the stack and the API URL in the frontend to point the the preprod backend.
-
-## Task Backlog (vaguely ordered in terms of importance)
-- Redesign frontend so it doesn't look so bad
-- Rename "sets" column to "set_number" or "setNumber"
-- Make it so double deploy doesn't need to happen first time (pass APIGW URL to frontend one deploy)
+- build_and_deploy.sh will deploy stuff with "preprod" attached to the end. This can be used as the playground to test stuff
+- The regular build_and_deploy_prod.sh script won't append preprod to everything. 
