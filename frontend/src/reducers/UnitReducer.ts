@@ -5,7 +5,7 @@ interface WeightUnitState {
 }
 
 const initialState: WeightUnitState = {
-  weightUnit: 'kg', // default
+  weightUnit: 'lbs', // default
 };
 
 export default function weightUnitReducer(

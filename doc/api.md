@@ -1,6 +1,6 @@
 # GainsIQ API Documentation
 
-This document describes the API endpoints for the GainsIQ Workout Tracker. The base URL for the API is:
+This document describes the API endpoints for the GainsIQ Workout Tracker. The base URL for the preprod API https://winhi1fmi8.execute-api.us-west-2.amazonaws.com/prod.
 
 ---
 

@@ -18,18 +18,40 @@ import { theme } from './style/theme';
 import { Set, SetUtils } from './models/Set';
 import { apiUrl } from './utils/ApiUtils';
 import DeleteIcon from '@mui/icons-material/Delete'; 
+import { useSelector } from 'react-redux';
+import { RootState } from './utils/types';
 
+/** 
+ * storing everything as lbs internally because the backend uses lbs.
+ */
+const lbsToKgs = (lbs: number): number => lbs * 0.45359237;
+const kgsToLbs = (kgs: number): number => kgs / 0.45359237;
+
+const toDisplayWeight = (weightInLbs: number, unit: string): string => {
+  if (unit === 'kg') {
+    return lbsToKgs(weightInLbs).toFixed(2); 
+  }
+  return weightInLbs.toString(); 
+};
+
+const toLbsFromDisplay = (displayValue: string, unit: string): number => {
+  const typed = Number(displayValue);
+  if (unit === 'kg') {
+    return kgsToLbs(typed);
+  }
+  return typed;
+};
 
 const LastMonthWorkouts: React.FC = () => {
+  const unit = useSelector((state: RootState) => state.weightUnit.weightUnit); 
+
   const [sets, setSets] = useState<Set[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
 
-  // Track editing state
-  // We'll store the currently editing set by its unique keys: workoutId & timestamp
   const [editingKeys, setEditingKeys] = useState<{workoutId?: string, timestamp?: number}>({});
   const [editingValues, setEditingValues] = useState<Set>({
     exercise: '',
-    weight: 0,
+    weight: 0, 
     reps: '',
     setNumber: 0,
     timestamp: 0,
@@ -65,7 +87,7 @@ const LastMonthWorkouts: React.FC = () => {
 
   const startEditing = (set: Set) => {
     setEditingKeys({ workoutId: set.workoutId, timestamp: set.timestamp });
-    setEditingValues({ ...set }); // pre-fill with existing values
+    setEditingValues({ ...set }); 
   };
 
   const cancelEditing = () => {
@@ -122,15 +144,15 @@ const LastMonthWorkouts: React.FC = () => {
   const saveEdits = async () => {
     if (!editingKeys.workoutId || !editingKeys.timestamp) return;
 
+    // The editingValues.weight is stored as lbs, which the backend expects.
     const payload = {
       workoutId: editingKeys.workoutId,
       timestamp: Number(editingKeys.timestamp),
       exercise: editingValues.exercise,
       reps: editingValues.reps,
       sets: Number(editingValues.setNumber),
-      weight: Number(editingValues.weight)
+      weight: Number(editingValues.weight) 
     };
-      console.log(JSON.stringify(payload));
 
     try {
       const response = await fetch(`${apiUrl}/sets/edit`, {
@@ -162,7 +184,7 @@ const LastMonthWorkouts: React.FC = () => {
 
   const groupWorkoutsByDate = (sets: Set[]) => {
     return groupBy(sets, (set) =>
-      new Date((set.timestamp|| 0) * 1000).toLocaleDateString()
+      new Date((set.timestamp || 0) * 1000).toLocaleDateString()
     );
   };
 
@@ -224,10 +246,12 @@ const LastMonthWorkouts: React.FC = () => {
                                 sx={{ marginBottom: '10px' }}
                               />
                               <TextField
-                                label="Weight (lbs)"
+                                label={"Weight " + unit}
                                 type="number"
-                                value={editingValues.weight}
-                                onChange={(e) => handleChange('weight', Number(e.target.value))}
+                                value={toDisplayWeight(editingValues.weight, unit)}
+                                onChange={(e) =>
+                                  handleChange('weight', toLbsFromDisplay(e.target.value, unit))
+                                }
                                 fullWidth
                                 sx={{ marginBottom: '10px' }}
                               />
@@ -247,8 +271,16 @@ const LastMonthWorkouts: React.FC = () => {
                               sx={{ padding: '10px', marginBottom: '10px' }}
                             >
                               <Typography variant="h6">{setItem.exercise}</Typography>
-                              <Typography>Set #: {setItem.setNumber}, Reps: {setItem.reps}, Weight: {setItem.weight} lbs</Typography>
-                              <Typography>Time: {new Date((setItem.timestamp || 0) * 1000).toLocaleString()}</Typography>
+                              {/* 
+                                For display, convert from lbs to the chosen unit:
+                              */}
+                              <Typography>
+                                Set #: {setItem.setNumber}, Reps: {setItem.reps}, 
+                                Weight: {toDisplayWeight(setItem.weight, unit)} {unit}
+                              </Typography>
+                              <Typography>
+                                Time: {new Date((setItem.timestamp || 0) * 1000).toLocaleString()}
+                              </Typography>
                               <Button variant="text" onClick={() => startEditing(setItem)}>
                                 Edit
                               </Button>
@@ -259,7 +291,7 @@ const LastMonthWorkouts: React.FC = () => {
                                 startIcon={<DeleteIcon />}
                               >
                                 Delete
-                            </Button>
+                              </Button>
                             </Paper>
                           );
                         }
