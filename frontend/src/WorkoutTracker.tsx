@@ -20,8 +20,14 @@ import { amber, indigo } from '@mui/material/colors';
 import { theme } from './style/theme';
 import { Set, SetUtils } from './models/Set';
 import { environment, useApi } from './utils/ApiUtils';
+import { setWeightUnit } from './actions/UnitActions';
+import { useDispatch, useSelector } from 'react-redux';
+import { RootState } from './utils/types';
 
 const WorkoutTracker: React.FC = () => {
+  const dispatch = useDispatch();
+  const unit = useSelector((state: RootState) => state.weightUnit.weightUnit);
+
   const { fetchData } = useApi();
   // TODO: Simply state management. Could just have [usersSet, setUsersSet] that gets updated on change.
   const [exercises, setExercises] = useState<string[]>([]);
@@ -31,7 +37,6 @@ const WorkoutTracker: React.FC = () => {
   const [reps, setReps] = useState<string>('');
   const [setNumber, setSetNumber] = useState<string>('');
   const [weight, setWeight] = useState<string>('');
-  const [unit, setUnit] = useState<'lbs' | 'kg'>('lbs');
   const [confirmationMessage, setConfirmationMessage] = useState<string>('');
   const [snackbarOpen, setSnackbarOpen] = useState<boolean>(false);
 
@@ -223,7 +228,7 @@ const WorkoutTracker: React.FC = () => {
                     onChange={(e) => {
                       const value = e.target.value;
                       if (value === 'lbs' || value === 'kg') {
-                        setUnit(value as 'lbs' | 'kg');
+                        dispatch(setWeightUnit(value as 'lbs' | 'kg'))
                       }
                     }}
                     label="Unit"
