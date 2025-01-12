@@ -111,11 +111,11 @@ Deletes an exercise from the database.
 
 ### Sets
 
-#### 1. Log a Workout Set
+#### 1. Log a Set
 
 **POST /sets/log**
 
-Logs a new workout set.
+Logs a new set.
 
 **Request Body:**
 ```
@@ -152,15 +152,15 @@ Logs a new workout set.
 
 ---
 
-#### 2. Fetch Last Month's Workouts
+#### 2. Fetch Last Month's Sets
 
 **GET /sets/last_month**
 
-Fetches all workouts logged in the last 30 days.
+Fetches all sets logged in the last 30 days.
 
 **Response:**
 
-- **200 OK:** Returns a list of workouts.
+- **200 OK:** Returns a list of sets.
   ```
   [
     {
@@ -187,7 +187,7 @@ Fetches all workouts logged in the last 30 days.
 
 **POST /sets/pop**
 
-Removes the most recently logged workout set.
+Removes the most recently logged set.
 
 **Response:**
 
@@ -214,11 +214,11 @@ Removes the most recently logged workout set.
 
 ---
 
-#### 4. Edit a Workout Set
+#### 4. Edit a Set
 
 **PUT /sets/edit**
 
-Edits an existing workout set.
+Edits an existing set.
 
 **Request Body:**
 ```
@@ -256,11 +256,11 @@ Edits an existing workout set.
 
 ---
 
-#### 5. Delete a Workout Set
+#### 5. Delete a Set
 
 **DELETE /sets**
 
-Deletes a specific workout set by `workoutId` and `timestamp`.
+Deletes a specific set by `workoutId` and `timestamp`.
 
 **Request Body:**
 ```
