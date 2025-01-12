@@ -1,4 +1,5 @@
 use aws_sdk_dynamodb::Client;
+use backend_rs::analysis;
 use lambda_runtime::{Error, LambdaEvent};
 use log::warn;
 use serde_json::Value;
@@ -15,6 +16,8 @@ pub async fn handler(event: LambdaEvent<Value>) -> Result<Value, Error> {
     let exercises_table_name = env::var("EXERCISES_TABLE").expect("EXERCISES_TABLE not set");
     let sets_table_name = env::var("SETS_TABLE").expect("SETS_TABLE not set");
     let weight_table_name = env::var("WEIGHT_TABLE").expect("WEIGHT_TABLE not set");
+    let analysis_table_name = env::var("ANALYSES_TABLE").expect("ANALYSES_TABLE not set");
+
     let payload_clone = event.payload.clone(); 
 
 
@@ -109,6 +112,12 @@ pub async fn handler(event: LambdaEvent<Value>) -> Result<Value, Error> {
         }
         ("DELETE", "/weight") => {
             let response = weight::delete_most_recent_weight(&dynamodb_client, &weight_table_name).await;
+            Ok(serde_json::to_value(response)?)
+        }
+
+        // Anlaysis endpoints
+        ("GET", "/analysis") => {
+            let response = analysis::get_most_recent_analysis(&dynamodb_client, &analysis_table_name).await;
             Ok(serde_json::to_value(response)?)
         }
 

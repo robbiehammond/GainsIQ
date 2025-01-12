@@ -26,6 +26,7 @@ pub trait DynamoDb {
         weight: Option<f32>,
     ) -> Result<(), aws_sdk_dynamodb::Error>;
     async fn delete_exercise(&self, table_name: &str, exercise_name: &str) -> Result<(), aws_sdk_dynamodb::Error>;
+    async fn query_most_recent_analysis(&self, table_name: &str) -> Result<Vec<HashMap<String, AttributeValue>>, aws_sdk_dynamodb::Error>; 
 
 }
 
@@ -180,6 +181,18 @@ impl DynamoDb for Client {
             .send()
             .await?;
         Ok(())
+    }
+
+    // TODO: Make this client not be table specific; table specific code should go in the respective file (like sets-specific stuff in sets.rs).
+    async fn query_most_recent_analysis(&self, table_name: &str) -> Result<Vec<HashMap<String, AttributeValue>>, aws_sdk_dynamodb::Error> {
+        let result = self
+            .scan()
+            .table_name(table_name)
+            .expression_attribute_names("#ts", "timestamp")
+            .filter_expression("attribute_exists(#ts)")
+            .send()
+            .await?;
+        Ok(result.items.unwrap_or_default())
     }
 }
 

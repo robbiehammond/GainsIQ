@@ -130,6 +130,7 @@ class GainsIQStack(Stack):
                                                role=lambda_role,
                                                timeout=Duration.minutes(5),
                                                environment={
+                                                   'ANALYSES_TABLE': analyses_table.table_name,
                                                    'EXERCISES_TABLE': exercises_table.table_name,
                                                    'SETS_TABLE': sets_table.table_name,
                                                    'WEIGHT_TABLE': weight_table.table_name
@@ -165,6 +166,10 @@ class GainsIQStack(Stack):
         weight.add_method("POST", apigateway.LambdaIntegration(backend_lambda, proxy=True))
         weight.add_method("GET", apigateway.LambdaIntegration(backend_lambda, proxy=True))
         weight.add_method("DELETE", apigateway.LambdaIntegration(backend_lambda, proxy=True))
+
+        # No POST request since only the summary_maker Lambda can write to this table.
+        analysis = api.root.add_resource("analysis")
+        analysis.add_method("GET", apigateway.LambdaIntegration(backend_lambda, proxy=True))
 
         monthly_rule = events.Rule(self, f"GainsIQMonthlyRule{suffix}",
                                    schedule=events.Schedule.cron(minute="0", hour="0", day="1", month="*", year="*"))

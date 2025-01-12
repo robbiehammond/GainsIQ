@@ -29,5 +29,6 @@ mock! {
             weight: Option<f32>,
         ) -> Result<(), aws_sdk_dynamodb::Error>;
         async fn delete_exercise(&self, table_name: &str, exercise_name: &str) -> Result<(), aws_sdk_dynamodb::Error>;
+        async fn query_most_recent_analysis(&self, table_name: &str) -> Result<Vec<HashMap<String, AttributeValue>>, aws_sdk_dynamodb::Error>; // TODO: Implement!
     }
 }
