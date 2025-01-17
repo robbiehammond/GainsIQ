@@ -126,7 +126,7 @@ class GainsIQStack(Stack):
         processing_lambda_trigger_queue = sqs.Queue(
             self, 
             f"ProcessingLambdaTriggerQueue{suffix}",
-            queue_name="AnalysisRequestsQueue",
+            queue_name=f"AnalysisRequestsQueue{suffix}",
             visibility_timeout=Duration.seconds(300)
         )
 
