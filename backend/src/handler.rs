@@ -120,6 +120,13 @@ pub async fn handler(event: LambdaEvent<Value>) -> Result<Value, Error> {
             let response = analysis::get_most_recent_analysis(&dynamodb_client, &analysis_table_name).await;
             Ok(serde_json::to_value(response)?)
         }
+        ("POST", "/analysis") => { // Generate a new analysis. Maybe make this it's own endpoint? Idk.
+            let response = analysis::ping_processing_lambda().await;
+            Ok(serde_json::to_value(response)?)
+        }
+
+
+
 
         // Default response
         _ => Ok(serde_json::to_value(error_response(404, "Route not found".to_string()))?),

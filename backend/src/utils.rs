@@ -231,3 +231,7 @@ pub fn success_response(statusCode: u16, body: String) -> Response {
 pub fn error_response(status_code: u16, body: String) -> Response {
     success_response(status_code, body)
 }
+
+pub fn not_implemented_response() -> Response {
+    error_response(500, "Not yet implemented.".to_string())
+}

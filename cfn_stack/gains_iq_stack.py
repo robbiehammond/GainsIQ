@@ -10,9 +10,10 @@ from aws_cdk import (
     aws_events as events,
     aws_events_targets as targets,
     aws_iam as iam,
+    aws_sqs as sqs,
+    aws_lambda_event_sources as lambda_event_sources,
     Duration
 )
-import os
 import json
 from constructs import Construct
 from aws_cdk.aws_apigateway import Cors
@@ -121,6 +122,19 @@ class GainsIQStack(Stack):
                                                  'SNS_TOPIC_ARN': notification_topic.topic_arn,
                                                  'IS_PREPROD': "YES" if is_preprod else "NO"
                                              })
+
+        processing_lambda_trigger_queue = sqs.Queue(
+            self, 
+            f"ProcessingLambdaTriggerQueue{suffix}",
+            queue_name="AnalysisRequestsQueue",
+            visibility_timeout=Duration.seconds(300)
+        )
+
+        processing_lambda.add_event_source(
+            lambda_event_sources.SqsEventSource(
+                processing_lambda_trigger_queue
+            )
+        )
         
         backend_lambda = _lambda.Function(self, f"GainsIQRustBackendHandler{suffix}",
                                                runtime=_lambda.Runtime.PROVIDED_AL2023,  

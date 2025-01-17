@@ -1,4 +1,4 @@
-use crate::utils::{error_response, success_response, DynamoDb, Response};
+use crate::utils::{error_response, not_implemented_response, success_response, DynamoDb, Response};
 
 // TODO: Write tests.
 pub async fn get_most_recent_analysis(client: &dyn DynamoDb, table_name: &str) -> Response {
@@ -14,4 +14,8 @@ pub async fn get_most_recent_analysis(client: &dyn DynamoDb, table_name: &str) -
         Err(e) => error_response(500, format!("Error scanning table: {:?}", e))
 
     }
+}
+
+pub async fn ping_processing_lambda() -> Response {
+    not_implemented_response()
 }
