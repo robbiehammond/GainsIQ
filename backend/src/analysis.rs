@@ -1,3 +1,4 @@
+use aws_sdk_sqs::Client;
 use crate::utils::{error_response, not_implemented_response, success_response, DynamoDb, Response};
 
 // TODO: Write tests.
@@ -16,6 +17,23 @@ pub async fn get_most_recent_analysis(client: &dyn DynamoDb, table_name: &str) -
     }
 }
 
-pub async fn ping_processing_lambda() -> Response {
-    not_implemented_response()
+pub async fn ping_processing_lambda(sqs_client: &Client, queue_url: &str) -> Response {
+    match sqs_client
+        .send_message()
+        .queue_url(queue_url)
+        .message_body("Triggering SQS from ping_processing_lambda!") // Customize as you like
+        .send()
+        .await
+    {
+        Ok(response) => {
+            if let Some(message_id) = response.message_id() {
+                success_response(200, format!("Message sent! ID: {}", message_id))
+            } else {
+                success_response(200, "Message sent, but no MessageId returned.".to_string())
+            }
+        }
+        Err(e) => {
+            error_response(500, format!("Failed to send message to SQS queue: {:?}", e))
+        }
+    }
 }

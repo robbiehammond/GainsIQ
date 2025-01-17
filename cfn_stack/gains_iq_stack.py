@@ -78,6 +78,13 @@ class GainsIQStack(Stack):
         data_bucket = s3.Bucket(self, f"GainsIQDataBucket{suffix}",
                                 versioned=True)
 
+        processing_lambda_trigger_queue = sqs.Queue(
+            self, 
+            f"ProcessingLambdaTriggerQueue{suffix}",
+            queue_name=f"AnalysisRequestsQueue{suffix}",
+            visibility_timeout=Duration.seconds(300)
+        )
+
         # IAM Role
         lambda_role = iam.Role(self, f"GainsIQLambdaRole{suffix}",
                                assumed_by=iam.ServicePrincipal("lambda.amazonaws.com"),
@@ -99,6 +106,15 @@ class GainsIQStack(Stack):
                 "dynamodb:DeleteItem"
             ],
             resources=[exercises_table.table_arn, sets_table.table_arn, weight_table.table_arn, analyses_table.table_arn]
+        ))
+
+        lambda_role.add_to_policy(iam.PolicyStatement(
+            effect=iam.Effect.ALLOW,
+            actions=[
+                "sqs:SendMessage",
+                "sqs:SendMessageBatch"
+            ],
+            resources=[processing_lambda_trigger_queue.queue_arn]  # Use the queue's ARN
         ))
 
         data_bucket.grant_read_write(lambda_role)
@@ -123,13 +139,6 @@ class GainsIQStack(Stack):
                                                  'IS_PREPROD': "YES" if is_preprod else "NO"
                                              })
 
-        processing_lambda_trigger_queue = sqs.Queue(
-            self, 
-            f"ProcessingLambdaTriggerQueue{suffix}",
-            queue_name=f"AnalysisRequestsQueue{suffix}",
-            visibility_timeout=Duration.seconds(300)
-        )
-
         processing_lambda.add_event_source(
             lambda_event_sources.SqsEventSource(
                 processing_lambda_trigger_queue
@@ -147,7 +156,8 @@ class GainsIQStack(Stack):
                                                    'ANALYSES_TABLE': analyses_table.table_name,
                                                    'EXERCISES_TABLE': exercises_table.table_name,
                                                    'SETS_TABLE': sets_table.table_name,
-                                                   'WEIGHT_TABLE': weight_table.table_name
+                                                   'WEIGHT_TABLE': weight_table.table_name,
+                                                   'QUEUE_URL': processing_lambda_trigger_queue.queue_url
                                                })
 
         notification_topic.grant_publish(processing_lambda)
@@ -181,9 +191,9 @@ class GainsIQStack(Stack):
         weight.add_method("GET", apigateway.LambdaIntegration(backend_lambda, proxy=True))
         weight.add_method("DELETE", apigateway.LambdaIntegration(backend_lambda, proxy=True))
 
-        # No POST request since only the summary_maker Lambda can write to this table.
         analysis = api.root.add_resource("analysis")
         analysis.add_method("GET", apigateway.LambdaIntegration(backend_lambda, proxy=True))
+        analysis.add_method("POST", apigateway.LambdaIntegration(backend_lambda, proxy=True))
 
         monthly_rule = events.Rule(self, f"GainsIQMonthlyRule{suffix}",
                                    schedule=events.Schedule.cron(minute="0", hour="0", day="1", month="*", year="*"))

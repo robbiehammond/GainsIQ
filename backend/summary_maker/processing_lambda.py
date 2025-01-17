@@ -19,6 +19,7 @@ s3_bucket_name = os.environ['S3_BUCKET_NAME']
 
 is_preprod = True if os.environ['IS_PREPROD'] == "YES" else False
 
+# TODO: Make it so that when triggered by the backend, emails and stuff aren't sent.
 def lambda_handler(event, context):
 
     workout_data = get_last_month_data()

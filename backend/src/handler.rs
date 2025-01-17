@@ -1,4 +1,5 @@
-use aws_sdk_dynamodb::Client;
+use aws_sdk_dynamodb::Client as DDBClient;
+use aws_sdk_sqs::Client as SQSClient;
 use backend_rs::analysis;
 use lambda_runtime::{Error, LambdaEvent};
 use log::warn;
@@ -8,7 +9,8 @@ use crate::{weight, exercises, sets, utils::{error_response, RequestBody}};
 
 
 pub async fn handler(event: LambdaEvent<Value>) -> Result<Value, Error> {
-    let dynamodb_client = Client::new(&aws_config::load_defaults(aws_config::BehaviorVersion::latest()).await);
+    let dynamodb_client = DDBClient::new(&aws_config::load_defaults(aws_config::BehaviorVersion::latest()).await);
+    let sqs_client = SQSClient::new(&aws_config::load_defaults(aws_config::BehaviorVersion::latest()).await);
 
     let path = event.payload["path"].as_str().unwrap_or("/");
     let http_method = event.payload["httpMethod"].as_str().unwrap_or("GET");
@@ -17,6 +19,7 @@ pub async fn handler(event: LambdaEvent<Value>) -> Result<Value, Error> {
     let sets_table_name = env::var("SETS_TABLE").expect("SETS_TABLE not set");
     let weight_table_name = env::var("WEIGHT_TABLE").expect("WEIGHT_TABLE not set");
     let analysis_table_name = env::var("ANALYSES_TABLE").expect("ANALYSES_TABLE not set");
+    let queue_url = env::var("QUEUE_URL").expect("QUEUE_URL not set.");
 
     let payload_clone = event.payload.clone(); 
 
@@ -121,12 +124,9 @@ pub async fn handler(event: LambdaEvent<Value>) -> Result<Value, Error> {
             Ok(serde_json::to_value(response)?)
         }
         ("POST", "/analysis") => { // Generate a new analysis. Maybe make this it's own endpoint? Idk.
-            let response = analysis::ping_processing_lambda().await;
+            let response = analysis::ping_processing_lambda(&sqs_client, &queue_url).await;
             Ok(serde_json::to_value(response)?)
         }
-
-
-
 
         // Default response
         _ => Ok(serde_json::to_value(error_response(404, "Route not found".to_string()))?),
