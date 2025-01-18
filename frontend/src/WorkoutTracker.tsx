@@ -127,6 +127,19 @@ const WorkoutTracker: React.FC = () => {
     }
   };
 
+  const handleGenerateAnalysis = async () => {
+    try {
+      const message = await fetchData('/analysis', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+      });
+      setConfirmationMessage(message);
+      setSnackbarOpen(true);
+    } catch (error) {
+      console.error('Error generating analysis:', error);
+    }
+  };
+
 
   return (
     <ThemeProvider theme={theme}>
@@ -260,6 +273,18 @@ const WorkoutTracker: React.FC = () => {
                   sx={{ backgroundColor: amber[600], '&:hover': { backgroundColor: amber[800] } }}
                 >
                   Pop Last Set
+                </Button>
+              </Grid>
+
+              <Grid item xs={12}>
+                <Button
+                  variant="contained"
+                  color="secondary"
+                  fullWidth
+                  onClick={handleGenerateAnalysis}
+                  sx={{ backgroundColor: amber[600], '&:hover': { backgroundColor: amber[800] } }}
+                >
+                  Generate Analysis
                 </Button>
               </Grid>
             </Grid>

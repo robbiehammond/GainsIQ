@@ -1,12 +1,11 @@
 import React from 'react';
 import WorkoutTracker from './WorkoutTracker';
 import LastMonthWorkouts from './LastMonthWorkouts';
-import { Button, Container, ThemeProvider } from '@mui/material';
 import WeightEntry from './WeightEntry';
+import AnalysisView from './AnalysisView'; 
+import { Button, Container, ThemeProvider } from '@mui/material';
 import { Route, Routes, Link, BrowserRouter } from 'react-router-dom';
 import { theme } from './style/theme';
-import SampleButton from './components/sample_button/SampleButton';
-
 
 const App: React.FC = () => {
   return (
@@ -17,6 +16,7 @@ const App: React.FC = () => {
             <Route path="/" element={<WorkoutTracker />} />
             <Route path="/last-month" element={<LastMonthWorkouts />} />
             <Route path="/weight-entry" element={<WeightEntry />} />
+            <Route path="/analysis" element={<AnalysisView />} /> 
           </Routes>
           <Link to="/">
             <Button variant="contained" color="secondary" fullWidth sx={{ marginTop: 2 }}>
@@ -31,6 +31,11 @@ const App: React.FC = () => {
           <Link to="/weight-entry">
             <Button variant="contained" color="secondary" fullWidth sx={{ marginTop: 2 }}>
               Enter Bodyweight
+            </Button>
+          </Link>
+          <Link to="/analysis">
+            <Button variant="contained" color="secondary" fullWidth sx={{ marginTop: 2 }}>
+              View Most Recent Analysis
             </Button>
           </Link>
         </Container>

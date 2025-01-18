@@ -21,7 +21,7 @@ pub async fn ping_processing_lambda(sqs_client: &Client, queue_url: &str) -> Res
     match sqs_client
         .send_message()
         .queue_url(queue_url)
-        .message_body("Triggering SQS from ping_processing_lambda!") // Customize as you like
+        .message_body("Triggering SQS from ping_processing_lambda!") 
         .send()
         .await
     {
