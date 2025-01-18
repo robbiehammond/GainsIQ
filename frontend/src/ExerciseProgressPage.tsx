@@ -114,14 +114,38 @@ const ExerciseProgressPage: React.FC = () => {
     }
   };
 
-  const chartData = setsData.map(s => ({
-    date: s.timestamp
-      ? new Date(parseInt(s.timestamp) * 1000).toLocaleDateString()
-      : '',
-    weight: s.weight ? parseFloat(s.weight) : 0,
-    reps: s.reps ? parseInt(s.reps) : 0,
-  }));
+  const chartData = Object.values(
+    setsData.reduce((acc, set) => {
+      const dateKey = set.timestamp
+        ? new Date(parseInt(set.timestamp) * 1000).toLocaleDateString()
+        : '';
 
+      if (!dateKey) return acc;
+
+      if (!acc[dateKey]) {
+        acc[dateKey] = {
+          date: dateKey,
+          totalWeight: 0,
+          totalReps: 0,
+          setCount: 0,
+        };
+      }
+
+      // Increment totals
+      const weight = set.weight ? parseFloat(set.weight) : 0;
+      const reps = set.reps ? parseInt(set.reps) : 0;
+
+      acc[dateKey].totalWeight += weight;
+      acc[dateKey].totalReps += reps;
+      acc[dateKey].setCount += 1;
+
+      return acc;
+    }, {} as Record<string, { date: string; totalWeight: number; totalReps: number; setCount: number }>)
+  ).map((group) => ({
+    date: group.date,
+    avgWeight: group.totalWeight / group.setCount,
+    avgReps: group.totalReps / group.setCount,
+  }));
   return (
     <Container maxWidth="md" sx={{ padding: '20px' }}>
       <Paper elevation={3} sx={{ padding: '20px' }}>
@@ -189,37 +213,45 @@ const ExerciseProgressPage: React.FC = () => {
         </Typography>
         <div style={{ width: '100%', height: 400 }}>
           <ResponsiveContainer>
-            <ComposedChart data={chartData}>
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="date" />
-              <YAxis
-                yAxisId="left"
-                label={{ value: 'Weight', angle: -90, position: 'insideLeft' }}
-              />
-              <YAxis
-                yAxisId="right"
-                orientation="right"
-                label={{ value: 'Reps', angle: 90, position: 'insideRight' }}
-              />
-              <Tooltip />
-              <Legend />
+          <ComposedChart data={chartData}>
+            <CartesianGrid strokeDasharray="3 3" />
+            <XAxis dataKey="date" />
+            {/* Y-axis for reps */}
+            <YAxis
+              yAxisId="right"
+              orientation="right"
+              label={{ value: 'Avg Reps', angle: 90, position: 'insideRight' }}
+            />
+            
+            {/* Y-axis for weight */}
+            <YAxis
+              yAxisId="left"
+              label={{ value: 'Avg Weight', angle: -90, position: 'insideLeft' }}
+              domain={['dataMin - 10', 'dataMax + 10']} 
+            />
 
-              <Line
-                yAxisId="left"
-                type="monotone"
-                dataKey="weight"
-                stroke="#8884d8"
-                name="Weight"
-                activeDot={{ r: 8 }}
-              />
+            <Tooltip />
+            <Legend />
 
-              <Bar
-                yAxisId="right"
-                dataKey="reps"
-                fill="#82ca9d"
-                name="Reps"
-              />
-            </ComposedChart>
+            {/* Line for avg weight */}
+            <Line
+              yAxisId="left"
+              type="monotone"
+              dataKey="avgWeight"
+              stroke="#8884d8"
+              name="Avg Weight"
+              activeDot={{ r: 8 }}
+            />
+
+            {/* Bar for avg reps */}
+            <Bar
+              yAxisId="right"
+              dataKey="avgReps"
+              fill="#82ca9d"
+              name="Avg Reps"
+              fillOpacity={0.5} 
+            />
+          </ComposedChart>
           </ResponsiveContainer>
         </div>
       </Paper>
