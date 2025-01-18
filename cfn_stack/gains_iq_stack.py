@@ -185,6 +185,8 @@ class GainsIQStack(Stack):
         last_month.add_method("GET", apigateway.LambdaIntegration(backend_lambda, proxy=True))
         edit = sets.add_resource("edit")
         edit.add_method("PUT", apigateway.LambdaIntegration(backend_lambda, proxy=True))
+        by_exercise = sets.add_resource("by_exercise")
+        by_exercise.add_method("GET", apigateway.LambdaIntegration(backend_lambda, proxy=True))
 
         weight = api.root.add_resource("weight")
         weight.add_method("POST", apigateway.LambdaIntegration(backend_lambda, proxy=True))

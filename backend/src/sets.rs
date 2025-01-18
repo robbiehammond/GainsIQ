@@ -149,3 +149,62 @@ pub async fn delete_set(
         Err(e) => error_response(500, format!("Error deleting set: {:?}", e)),
     }
 }
+
+pub async fn get_sets_for_exercise(
+    client: &dyn DynamoDb,
+    table_name: &str,
+    exercise_name: &str,
+    start_timestamp: i64,
+    end_timestamp: i64
+) -> Response {
+    fn extract_attr_string(attr: &AttributeValue) -> String {
+        match attr {
+            AttributeValue::S(val) => val.to_string(),
+            AttributeValue::N(val) => val.to_string(),
+            _ => "unknown".to_string(),
+        }
+    }
+
+    if exercise_name.is_empty() {
+        return error_response(400, "exercise_name cannot be empty".to_string());
+    }
+
+    match client.query_sets_for_exercise(table_name, exercise_name, start_timestamp, end_timestamp).await {
+        Ok(items) => {
+            // Convert the returned items into a list of key-value pairs
+            let mut sets_list: Vec<HashMap<String, String>> = items
+                .into_iter()
+                .map(|item| {
+                    let mut set_map = HashMap::new();
+                    if let Some(val) = item.get("workoutId") {
+                        set_map.insert("workoutId".to_string(), extract_attr_string(val));
+                    }
+                    if let Some(val) = item.get("exercise") {
+                        set_map.insert("exercise".to_string(), extract_attr_string(val));
+                    }
+                    if let Some(val) = item.get("reps") {
+                        set_map.insert("reps".to_string(), extract_attr_string(val));
+                    }
+                    if let Some(val) = item.get("sets") {
+                        set_map.insert("sets".to_string(), extract_attr_string(val));
+                    }
+                    if let Some(val) = item.get("weight") {
+                        set_map.insert("weight".to_string(), extract_attr_string(val));
+                    }
+                    if let Some(val) = item.get("timestamp") {
+                        set_map.insert("timestamp".to_string(), extract_attr_string(val));
+                    }
+                    set_map
+                })
+                .collect();
+
+            sets_list.sort_by_key(|s| s["timestamp"].parse::<i64>().unwrap_or(0));
+
+            let json_body = serde_json::to_string(&sets_list).unwrap_or("[]".to_string());
+            success_response(200, json_body)
+        }
+        Err(e) => {
+            error_response(500, format!("Error querying sets for {}: {:?}", exercise_name, e))
+        }
+    }
+}

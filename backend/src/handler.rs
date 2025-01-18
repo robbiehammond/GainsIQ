@@ -41,6 +41,8 @@ pub async fn handler(event: LambdaEvent<Value>) -> Result<Value, Error> {
             sets: request_body_json.get("sets").and_then(|v| v.as_u64().map(|v| v as i32)),
             weight: request_body_json.get("weight").and_then(|v| v.as_f64().map(|v| v as f32)),
             action: request_body_json.get("action").and_then(|v| v.as_str().map(String::from)),
+            start: request_body_json.get("start").and_then(|v| v.as_u64().map(|v| v as i64)),
+            end: request_body_json.get("end").and_then(|v| v.as_u64().map(|v| v as i64))
         }
     });
     println!("Request path: {}", path);
@@ -81,6 +83,28 @@ pub async fn handler(event: LambdaEvent<Value>) -> Result<Value, Error> {
             let response = sets::pop_last_set(&dynamodb_client, &sets_table_name).await;
             Ok(serde_json::to_value(response)?)
         }
+        ("GET", "/sets/by_exercise") => {
+            // Read from queryStringParameters
+            let query_params = event.payload["queryStringParameters"].clone();
+        
+            let exercise_name = query_params["exerciseName"].as_str().unwrap_or("");
+            let start_str = query_params["start"].as_str().unwrap_or("0");
+            let end_str = query_params["end"].as_str().unwrap_or("9999999999");
+        
+            let start_ts = start_str.parse::<i64>().unwrap_or(0);
+            let end_ts = end_str.parse::<i64>().unwrap_or(9999999999);
+        
+            let response = sets::get_sets_for_exercise(
+                &dynamodb_client,
+                &sets_table_name,
+                exercise_name,
+                start_ts,
+                end_ts,
+            ).await;
+        
+            Ok(serde_json::to_value(response)?)
+        }
+        
         ("PUT", "/sets/edit") => {
             // TODO: Error handling here.
             let workout_id = body.workout_id.unwrap_or("".to_string());

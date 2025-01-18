@@ -27,6 +27,7 @@ pub trait DynamoDb {
     ) -> Result<(), aws_sdk_dynamodb::Error>;
     async fn delete_exercise(&self, table_name: &str, exercise_name: &str) -> Result<(), aws_sdk_dynamodb::Error>;
     async fn query_most_recent_analysis(&self, table_name: &str) -> Result<Vec<HashMap<String, AttributeValue>>, aws_sdk_dynamodb::Error>; 
+    async fn query_sets_for_exercise(&self, table_name: &str, exercise_name: &str, start_timestamp: i64, end_timestamp: i64) -> Result<Vec<HashMap<String, AttributeValue>>, aws_sdk_dynamodb::Error>;  
 
 }
 
@@ -194,6 +195,32 @@ impl DynamoDb for Client {
             .await?;
         Ok(result.items.unwrap_or_default())
     }
+
+    async fn query_sets_for_exercise(
+        &self,
+        table_name: &str,
+        exercise_name: &str,
+        start_timestamp: i64,
+        end_timestamp: i64
+    ) -> Result<Vec<HashMap<String, AttributeValue>>, aws_sdk_dynamodb::Error> {
+        // For large tables, consider using a Query with a key
+        // condition if your schema is set up for it (e.g., if 'exercise'
+        // is the partition key). For demonstration, we’ll do a Scan + Filter.
+
+        let result = self
+            .scan()
+            .table_name(table_name)
+            .expression_attribute_names("#ex", "exercise")
+            .expression_attribute_names("#ts", "timestamp")
+            .expression_attribute_values(":exercise_val", AttributeValue::S(exercise_name.to_string()))
+            .expression_attribute_values(":start", AttributeValue::N(start_timestamp.to_string()))
+            .expression_attribute_values(":end", AttributeValue::N(end_timestamp.to_string()))
+            .filter_expression("#ex = :exercise_val AND #ts BETWEEN :start AND :end")
+            .send()
+            .await?;
+
+        Ok(result.items.unwrap_or_default())
+    }
 }
 
 #[derive(Deserialize, Debug)]
@@ -207,6 +234,10 @@ pub struct RequestBody {
     pub sets: Option<i32>,
     pub weight: Option<f32>,
     pub action: Option<String>,
+
+    // For querying by timerange
+    pub start: Option<i64>,
+    pub end: Option<i64>,
 }
 
 #[derive(Serialize)]
