@@ -1,7 +1,7 @@
 # GainsIQ
 
 ## What is this?
-A simple web-based workout tracker. You'll get sent a monthly email summary of your progress, analyzed by an LLM.
+A simple web-based workout tracker. You can instantly generate an analysis of your workouts with integrated LLM support.
 
 ## Dependencies 
 Your system needs to be able to build Rust, TypeScript, and Python code. Most dependencies will be acquired automatically when building with cargo/npm, but you'll have to manually get the following first:

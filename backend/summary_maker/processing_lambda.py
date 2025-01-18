@@ -37,13 +37,15 @@ def lambda_handler(event, context):
         'body': json.dumps('Analysis saved to table. No SNS notifications bc this is preprod.')
     }
     
-    save_analysis_to_s3(analysis)
+    # Commenting these out now that I can see the analysis in the table, and they can be generated from the frontend.
+    # Will keep around in case I want to re-enable this in the future or something.
+    #save_analysis_to_s3(analysis)
     
-    send_via_sns(analysis)
+    #send_via_sns(analysis)
     
     return {
         'statusCode': 200,
-        'body': json.dumps('Analysis completed, saved to table, and sent successfully via SNS.')
+        'body': json.dumps('Analysis completed, saved to table.')
     }
 
 def get_last_month_data():
@@ -122,9 +124,8 @@ def call_openai_api(prompt):
     }
     
     data = json.dumps({
-        "model": "gpt-4o-mini",  
+        "model": "o1-mini",  
         "messages": [{"role": "user", "content": prompt}],
-        "temperature": 0.7  
     })
     
     conn.request("POST", "/v1/chat/completions", body=data, headers=headers)
