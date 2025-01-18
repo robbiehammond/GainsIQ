@@ -1,10 +1,12 @@
 use aws_sdk_dynamodb::{types::AttributeValue, Client};
 use chrono::Utc;
 use serde::Deserialize;
-use uuid::Uuid;
 use std::collections::HashMap;
-use crate::{utils::success_response, utils::{error_response, DynamoDb}, utils::Response};
+use uuid::Uuid;
 
+use crate::{
+    utils::{success_response, error_response, DynamoDb, Response},
+};
 
 #[derive(Deserialize)]
 pub struct LogSetRequest {
@@ -34,8 +36,16 @@ pub async fn log_set(
     item.insert("weight".to_string(), AttributeValue::N(weight.to_string()));
 
     match client.put_set(table_name, item).await {
-        Ok(_) => success_response(200, format!("Set for {} logged successfully", exercise)),
-        Err(e) => error_response(500, format!("Error logging set: {:?}", e)),
+        Ok(_) => {
+            // Return a JSON object with a "message" field.
+            let body = format!(r#"{{"message":"Set for {} logged successfully"}}"#, exercise);
+            success_response(200, body)
+        },
+        Err(e) => {
+            // Return a JSON object with an "error" field.
+            let err = format!(r#"{{"error":"Error logging set: {:?}"}}"#, e);
+            error_response(500, err)
+        },
     }
 }
 
@@ -78,7 +88,7 @@ pub async fn get_last_month_workouts(client: &dyn DynamoDb, table_name: &str) ->
                     }
 
                     workout.insert(
-                        "timestamp".to_string(), 
+                        "timestamp".to_string(),
                         item["timestamp"].as_n().unwrap().to_string()
                     );
 
@@ -87,29 +97,48 @@ pub async fn get_last_month_workouts(client: &dyn DynamoDb, table_name: &str) ->
                 .collect();
 
             // Sort by timestamp ascending
-            workouts.sort_by_key(|workout| workout["timestamp"].parse::<i64>().unwrap_or(0));
+            workouts.sort_by_key(|w| w["timestamp"].parse::<i64>().unwrap_or(0));
 
-            success_response(200, serde_json::to_string(&workouts).unwrap())
-        }
-        Err(e) => error_response(500, format!("Error fetching last month workouts: {:?}", e)),
+            // Return the array as a JSON string
+            let json_body = serde_json::to_string(&workouts).unwrap_or("[]".to_string());
+            success_response(200, json_body)
+        },
+        Err(e) => {
+            let err = format!(r#"{{"error":"Error fetching last month workouts: {:?}"}}"#, e);
+            error_response(500, err)
+        },
     }
 }
 
 pub async fn pop_last_set(client: &dyn DynamoDb, table_name: &str) -> Response {
     match client.scan_sets(table_name).await {
         Ok(items) => {
-            if let Some(most_recent_set) = items.into_iter().max_by_key(|x| x["timestamp"].as_n().unwrap().parse::<i64>().unwrap()) {
+            // Find the set with the largest timestamp
+            if let Some(most_recent_set) = items.into_iter()
+                .max_by_key(|x| x["timestamp"].as_n().unwrap().parse::<i64>().unwrap())
+            {
                 let workout_id = most_recent_set["workoutId"].as_s().unwrap();
                 let timestamp = most_recent_set["timestamp"].as_n().unwrap();
+
                 match client.delete_set(table_name, workout_id, timestamp).await {
-                    Ok(_) => success_response(200, format!("Successfully deleted last set for {}", most_recent_set["exercise"].as_s().unwrap())),
-                    Err(e) => error_response(500, format!("Error deleting last set: {:?}", e)),
+                    Ok(_) => {
+                        // Return a success JSON message
+                        success_response(200, r#"{"message":"Successfully deleted last set"}"#.to_string())
+                    },
+                    Err(e) => {
+                        let err = format!(r#"{{"error":"Error deleting last set: {:?}"}}"#, e);
+                        error_response(500, err)
+                    },
                 }
             } else {
-                error_response(404, "No set found to delete".to_string())
+                // No set found -> 404 with JSON error
+                error_response(404, r#"{"error":"No set found to delete"}"#.to_string())
             }
-        }
-        Err(e) => error_response(500, format!("Error scanning table: {:?}", e)),
+        },
+        Err(e) => {
+            let err = format!(r#"{{"error":"Error scanning table: {:?}"}}"#, e);
+            error_response(500, err)
+        },
     }
 }
 
@@ -123,11 +152,13 @@ pub async fn edit_set(
     weight: Option<f32>,
 ) -> Response {
     match client.update_set(table_name, &workout_id, timestamp, reps, sets, weight).await {
-        Ok(_) => success_response(200, "Set updated successfully".to_string()),
+        Ok(_) => {
+            success_response(200, r#"{"message":"Set updated successfully"}"#.to_string())
+        },
         Err(e) => {
-            println!("Updating set didn't work: {}", e);
-            error_response(500, format!("Error updating set: {:?}", e))
-        }
+            let err = format!(r#"{{"error":"Error updating set: {:?}"}}"#, e);
+            error_response(500, err)
+        },
     }
 }
 
@@ -138,15 +169,18 @@ pub async fn delete_set(
     timestamp: i64,
 ) -> Response {
     if workout_id.is_empty() || timestamp == 0 {
-        return error_response(400, "Invalid input: workoutId and timestamp are required".to_string());
+        return error_response(400, r#"{"error":"Invalid input: workoutId and timestamp are required"}"#.to_string());
     }
 
-    match client
-        .delete_set(table_name, &workout_id, &timestamp.to_string())
-        .await
-    {
-        Ok(_) => success_response(200, format!("Set with workoutId {} and timestamp {} deleted successfully", workout_id, timestamp)),
-        Err(e) => error_response(500, format!("Error deleting set: {:?}", e)),
+    match client.delete_set(table_name, &workout_id, &timestamp.to_string()).await {
+        Ok(_) => {
+            let msg = format!(r#"{{"message":"Set with workoutId {} and timestamp {} deleted successfully"}}"#, workout_id, timestamp);
+            success_response(200, msg)
+        },
+        Err(e) => {
+            let err = format!(r#"{{"error":"Error deleting set: {:?}"}}"#, e);
+            error_response(500, err)
+        },
     }
 }
 
@@ -166,12 +200,11 @@ pub async fn get_sets_for_exercise(
     }
 
     if exercise_name.is_empty() {
-        return error_response(400, "exercise_name cannot be empty".to_string());
+        return error_response(400, r#"{"error":"exercise_name cannot be empty"}"#.to_string());
     }
 
     match client.query_sets_for_exercise(table_name, exercise_name, start_timestamp, end_timestamp).await {
         Ok(items) => {
-            // Convert the returned items into a list of key-value pairs
             let mut sets_list: Vec<HashMap<String, String>> = items
                 .into_iter()
                 .map(|item| {
@@ -198,13 +231,15 @@ pub async fn get_sets_for_exercise(
                 })
                 .collect();
 
+            // Sort by ascending timestamp
             sets_list.sort_by_key(|s| s["timestamp"].parse::<i64>().unwrap_or(0));
 
             let json_body = serde_json::to_string(&sets_list).unwrap_or("[]".to_string());
             success_response(200, json_body)
-        }
+        },
         Err(e) => {
-            error_response(500, format!("Error querying sets for {}: {:?}", exercise_name, e))
-        }
+            let err = format!(r#"{{"error":"Error querying sets for {}: {:?}"}}"#, exercise_name, e);
+            error_response(500, err)
+        },
     }
 }

@@ -114,13 +114,12 @@ const WorkoutTracker: React.FC = () => {
 
   const handlePopLastSet = async () => {
     try {
-      const message = await fetchData('/sets/pop', {
+      const response = await fetchData('/sets/pop', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
       });
-      console.log(message);
 
-      setConfirmationMessage(message);
+      setConfirmationMessage(response.message);
       setSnackbarOpen(true);
     } catch (error) {
       console.error('Error popping last set:', error);
@@ -129,11 +128,11 @@ const WorkoutTracker: React.FC = () => {
 
   const handleGenerateAnalysis = async () => {
     try {
-      const message = await fetchData('/analysis', {
+      const response = await fetchData('/analysis', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
       });
-      setConfirmationMessage(message);
+      setConfirmationMessage(response.message);
       setSnackbarOpen(true);
     } catch (error) {
       console.error('Error generating analysis:', error);

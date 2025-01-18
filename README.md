@@ -5,6 +5,7 @@ A simple web-based workout tracker. You can instantly generate an analysis of yo
 
 ## Dependencies 
 Your system needs to be able to build Rust, TypeScript, and Python code. Most dependencies will be acquired automatically when building with cargo/npm, but you'll have to manually get the following first:
+- An AWS account where you have access to very permissive roles.
 - [Cargo Lambda](https://www.cargo-lambda.info/). Need this to build and deploy the backend.
 - An OpenAPI account. You'll need an API key to actually be able to get workout summaries.  
 
@@ -21,7 +22,7 @@ Before you can do `cdk deploy`, you must do a few things:
 - Next, build the backend. `cargo lambda build --release --arm64` will do this for you.
 - Next, build the frontend. This can be done via `npm run build`. 
 
-After this, you can deploy. Note that the site won't be connected to your backend yet. This is because you'll need to the API URL (you can get this from API Gateway) for the frontend. Create a .env file in the frontend directory like the following:
+After this, you can deploy. Note that the site won't be connected to your backend yet. This is because you'll need the API URL (you can get this from API Gateway) for the frontend. Create a .env file in the frontend directory like the following:
 ```
 REACT_APP_API_URL=https://blahblahblah.execute-api.us-west-2.amazonaws.com/prod
 ```
