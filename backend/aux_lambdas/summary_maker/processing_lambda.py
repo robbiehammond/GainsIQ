@@ -7,6 +7,8 @@ from decimal import Decimal
 import datetime
 from datetime import timedelta
 
+# TODO: Rewrite in TS, so the codebase is pretty much just Rust and Typescript.
+
 dynamodb = boto3.resource('dynamodb')
 sns = boto3.client('sns')
 
@@ -14,7 +16,6 @@ sets_table_name = os.environ['SETS_TABLE']
 analyses_table_name = os.environ['ANALYSES_TABLE']
 sets_table = dynamodb.Table(sets_table_name)
 openai_api_key = os.environ['OPENAI_API_KEY']
-sns_topic_arn = os.environ['SNS_TOPIC_ARN'] 
 s3_bucket_name = os.environ['S3_BUCKET_NAME']
 
 is_preprod = True if os.environ['IS_PREPROD'] == "YES" else False
@@ -30,22 +31,18 @@ def lambda_handler(event, context):
 
     save_analysis_to_table(analysis)
 
-    # Don't send emails/save to s3 for preprod, since this data is useless.
+    # Don't save to s3 for preprod, since this data is useless.
     if is_preprod:
         return {
         'statusCode': 200,
-        'body': json.dumps('Analysis saved to table. No SNS notifications bc this is preprod.')
+        'body': json.dumps('Analysis saved to table. No S3 save bc this data is meaningless..')
     }
-    
-    # Commenting these out now that I can see the analysis in the table, and they can be generated from the frontend.
-    # Will keep around in case I want to re-enable this in the future or something.
-    #save_analysis_to_s3(analysis)
-    
-    #send_via_sns(analysis)
+
+    save_analysis_to_s3(analysis)
     
     return {
         'statusCode': 200,
-        'body': json.dumps('Analysis completed, saved to table.')
+        'body': json.dumps('Analysis completed, saved to table and S3.')
     }
 
 def get_last_month_data():
@@ -150,18 +147,6 @@ def save_analysis_to_s3(analysis):
         Body=analysis,
         ContentType='text/plain'
     )
-
-def send_via_sns(analysis):
-    subject = "Monthly Workout Analysis"
-    message = f"Here is your workout analysis for the past month:\n\n{analysis}"
-    
-    response = sns.publish(
-        TopicArn=sns_topic_arn,
-        Subject=subject,
-        Message=message
-    )
-    
-    return response
 
 def save_analysis_to_table(analysis):
     analyses_table = dynamodb.Table(analyses_table_name)

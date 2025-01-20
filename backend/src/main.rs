@@ -7,6 +7,7 @@ pub mod sets;
 pub mod handler;
 pub mod weight;
 
+// TODO: Convert to C++. Rust is nice, but I want to develop faster.
 #[tokio::main]
 async fn main() -> Result<(), Error> {
     env_logger::init();

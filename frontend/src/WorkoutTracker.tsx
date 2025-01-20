@@ -40,6 +40,7 @@ const WorkoutTracker: React.FC = () => {
   const [confirmationMessage, setConfirmationMessage] = useState<string>('');
   const [snackbarOpen, setSnackbarOpen] = useState<boolean>(false);
 
+  // TODO: Ensure we aren't absolutely spamming the API with requests when not needed.
   useEffect(() => {
     const fetchExercises = async () => {
       try {

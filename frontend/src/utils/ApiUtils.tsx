@@ -9,7 +9,6 @@ export const useApi = () => {
         if (!response.ok) {
           throw new Error(`Error: ${response.status} - ${response.statusText}`);
         }
-        console.log(response);
         return await response.json();
 
       } catch (error) {

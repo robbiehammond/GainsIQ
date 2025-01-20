@@ -28,6 +28,7 @@ import {
   Tooltip,
   Legend,
   ResponsiveContainer,
+  LineChart,
 } from 'recharts';
 
 interface WorkoutSet {
@@ -47,6 +48,7 @@ const ExerciseProgressPage: React.FC = () => {
   const [startDate, setStartDate] = useState<Dayjs | null>(dayjs().subtract(14, 'day')); 
   const [endDate, setEndDate] = useState<Dayjs | null>(dayjs());
   const [setsData, setSetsData] = useState<WorkoutSet[]>([]);
+  const [chartType, setChartType] = useState<'average' | '1rm'>('average');
   const [error, setError] = useState('');
 
   useEffect(() => {
@@ -131,7 +133,6 @@ const ExerciseProgressPage: React.FC = () => {
         };
       }
 
-      // Increment totals
       const weight = set.weight ? parseFloat(set.weight) : 0;
       const reps = set.reps ? parseInt(set.reps) : 0;
 
@@ -141,11 +142,21 @@ const ExerciseProgressPage: React.FC = () => {
 
       return acc;
     }, {} as Record<string, { date: string; totalWeight: number; totalReps: number; setCount: number }>)
-  ).map((group) => ({
-    date: group.date,
-    avgWeight: group.totalWeight / group.setCount,
-    avgReps: group.totalReps / group.setCount,
-  }));
+  ).map((group) => {
+    const avgWeight = group.totalWeight / group.setCount;
+    const avgReps = group.totalReps / group.setCount;
+
+    // Brzycki formula for estimated 1RM. Not because the actual 1RM matters, but because it's a good indicator of progress
+    const estimated1RM = avgReps > 0 ? avgWeight / (1.0278 - 0.0278 * avgReps) : 0;
+
+    return {
+      date: group.date,
+      avgWeight,
+      avgReps,
+      estimated1RM, 
+    };
+  });
+
   return (
     <Container maxWidth="md" sx={{ padding: '20px' }}>
       <Paper elevation={3} sx={{ padding: '20px' }}>
@@ -211,49 +222,77 @@ const ExerciseProgressPage: React.FC = () => {
         <Typography variant="h6" sx={{ marginTop: 3 }}>
           Weight &amp; Reps Over Time
         </Typography>
+        <Grid item xs={12}>
+          <Button
+            variant={chartType === 'average' ? 'contained' : 'outlined'}
+            onClick={() => setChartType('average')}
+            sx={{ marginRight: 2 }}
+          >
+            Avg Weight/Reps
+          </Button>
+          <Button
+            variant={chartType === '1rm' ? 'contained' : 'outlined'}
+            onClick={() => setChartType('1rm')}
+          >
+            Estimated 1RM
+          </Button>
+        </Grid>
         <div style={{ width: '100%', height: 400 }}>
           <ResponsiveContainer>
-          <ComposedChart data={chartData}>
-            <CartesianGrid strokeDasharray="3 3" />
-            <XAxis dataKey="date" />
-            {/* Y-axis for reps */}
-            <YAxis
-              yAxisId="right"
-              orientation="right"
-              label={{ value: 'Avg Reps', angle: 90, position: 'insideRight' }}
-            />
-            
-            {/* Y-axis for weight */}
-            <YAxis
-              yAxisId="left"
-              label={{ value: 'Avg Weight', angle: -90, position: 'insideLeft' }}
-              domain={['dataMin - 10', 'dataMax + 10']} 
-            />
-
-            <Tooltip />
-            <Legend />
-
-            {/* Line for avg weight */}
-            <Line
-              yAxisId="left"
-              type="monotone"
-              dataKey="avgWeight"
-              stroke="#8884d8"
-              name="Avg Weight"
-              activeDot={{ r: 8 }}
-            />
-
-            {/* Bar for avg reps */}
-            <Bar
-              yAxisId="right"
-              dataKey="avgReps"
-              fill="#82ca9d"
-              name="Avg Reps"
-              fillOpacity={0.5} 
-            />
-          </ComposedChart>
+            {chartType === 'average' ? (
+              <ComposedChart data={chartData}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis dataKey="date" />
+                <YAxis
+                  yAxisId="left"
+                  label={{ value: 'Avg Weight', angle: -90, position: 'insideLeft' }}
+                  domain={['dataMin - 10', 'dataMax + 10']}
+                />
+                <YAxis
+                  yAxisId="right"
+                  orientation="right"
+                  label={{ value: 'Avg Reps', angle: 90, position: 'insideRight' }}
+                  domain={['dataMin - 1', 'dataMax + 1']}
+                />
+                <Tooltip />
+                <Legend />
+                <Line
+                  yAxisId="left"
+                  type="monotone"
+                  dataKey="avgWeight"
+                  stroke="#8884d8"
+                  name="Avg Weight"
+                  activeDot={{ r: 8 }}
+                />
+                <Bar
+                  yAxisId="right"
+                  dataKey="avgReps"
+                  fill="#82ca9d"
+                  name="Avg Reps"
+                  fillOpacity={0.5}
+                />
+              </ComposedChart>
+            ) : (
+              <LineChart data={chartData}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis dataKey="date" />
+                <YAxis
+                  label={{ value: 'Estimated 1RM', angle: -90, position: 'insideLeft' }}
+                  domain={['dataMin - 10', 'dataMax + 10']}
+                />
+                <Tooltip />
+                <Legend />
+                <Line
+                  type="monotone"
+                  dataKey="estimated1RM"
+                  stroke="#ff7300"
+                  name="Estimated 1RM"
+                  activeDot={{ r: 8 }}
+                />
+              </LineChart>
+            )}
           </ResponsiveContainer>
-        </div>
+      </div>
       </Paper>
     </Container>
   );

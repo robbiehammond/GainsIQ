@@ -114,19 +114,15 @@ class GainsIQStack(Stack):
                 "sqs:SendMessage",
                 "sqs:SendMessageBatch"
             ],
-            resources=[processing_lambda_trigger_queue.queue_arn]  # Use the queue's ARN
+            resources=[processing_lambda_trigger_queue.queue_arn]  
         ))
 
         data_bucket.grant_read_write(lambda_role)
 
-        notification_topic = sns.Topic(self, f"GainsIQNotifications{suffix}")
-
-        notification_topic.add_subscription(subs.EmailSubscription(email))
-
         processing_lambda = _lambda.Function(self, f"GainsIQProcessingLambda{suffix}",
                                              runtime=_lambda.Runtime.PYTHON_3_9,
                                              handler="processing_lambda.lambda_handler",
-                                             code=_lambda.Code.from_asset("backend/summary_maker"),
+                                             code=_lambda.Code.from_asset("backend/aux_lambdas/summary_maker"),
                                              role=lambda_role,
                                              timeout=Duration.minutes(5),
                                              environment={
@@ -135,7 +131,6 @@ class GainsIQStack(Stack):
                                                  'ANALYSES_TABLE': analyses_table.table_name,
                                                  'S3_BUCKET_NAME': data_bucket.bucket_name,
                                                  'OPENAI_API_KEY': openai_key,  
-                                                 'SNS_TOPIC_ARN': notification_topic.topic_arn,
                                                  'IS_PREPROD': "YES" if is_preprod else "NO"
                                              })
 
@@ -159,8 +154,6 @@ class GainsIQStack(Stack):
                                                    'WEIGHT_TABLE': weight_table.table_name,
                                                    'QUEUE_URL': processing_lambda_trigger_queue.queue_url
                                                })
-
-        notification_topic.grant_publish(processing_lambda)
 
         api = apigateway.RestApi(self, f"GainsIQAPI{suffix}",
                                  rest_api_name=f"GainsIQ API {env_name}",
@@ -201,3 +194,41 @@ class GainsIQStack(Stack):
                                    schedule=events.Schedule.cron(minute="0", hour="0", day="1", month="*", year="*"))
 
         monthly_rule.add_target(targets.LambdaFunction(processing_lambda))
+
+        anomalies_table = dynamodb.Table(self, f"AnomaliesTable{suffix}",
+            partition_key=dynamodb.Attribute(
+                name="anomalyId",
+                type=dynamodb.AttributeType.STRING
+            ),
+            billing_mode=dynamodb.BillingMode.PAY_PER_REQUEST,
+            point_in_time_recovery=True
+        )
+
+        lambda_role.add_to_policy(iam.PolicyStatement(
+            effect=iam.Effect.ALLOW,
+            actions=[
+                "dynamodb:Scan",
+                "dynamodb:GetItem",
+                "dynamodb:Query",
+                "dynamodb:PutItem"
+            ],
+            resources=[sets_table.table_arn, anomalies_table.table_arn]
+        ))
+
+        anomaly_detection_lambda = _lambda.Function(self, f"AnomalyDetectionLambda{suffix}",
+            runtime=_lambda.Runtime.PYTHON_3_9,
+            handler="anomaly_detection_lambda.lambda_handler", 
+            code=_lambda.Code.from_asset("backend/aux_lambdas/anomaly_detector"),  
+            role=lambda_role,
+            timeout=Duration.minutes(5),
+            environment={
+                "SETS_TABLE": sets_table.table_name,
+                "ANOMALIES_TABLE": anomalies_table.table_name
+            }
+        )
+
+        daily_anomaly_rule = events.Rule(self, f"GainsIQDailyAnomalyRule{suffix}",
+            schedule=events.Schedule.rate(Duration.hours(24)) 
+        )
+
+        daily_anomaly_rule.add_target(targets.LambdaFunction(anomaly_detection_lambda))
