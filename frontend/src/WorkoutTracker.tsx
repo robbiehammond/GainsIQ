@@ -53,7 +53,7 @@ const WorkoutTracker: React.FC = () => {
     };
 
     fetchExercises();
-  }, [fetchData]);
+  }, []);
 
   const filteredExercises = exercises.filter((exercise) =>
     exercise.toLowerCase().includes(searchTerm.toLowerCase())
