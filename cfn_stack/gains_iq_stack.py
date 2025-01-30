@@ -12,7 +12,8 @@ from aws_cdk import (
     aws_iam as iam,
     aws_sqs as sqs,
     aws_lambda_event_sources as lambda_event_sources,
-    Duration
+    Duration,
+    aws_logs as logs
 )
 import json
 from constructs import Construct
@@ -154,14 +155,37 @@ class GainsIQStack(Stack):
                                                    'WEIGHT_TABLE': weight_table.table_name,
                                                    'QUEUE_URL': processing_lambda_trigger_queue.queue_url
                                                })
-
+        
+        log_group = logs.LogGroup(self, f"GainsIQApiLogs{suffix}",
+                              retention=logs.RetentionDays.ONE_WEEK)
+        
         api = apigateway.RestApi(self, f"GainsIQAPI{suffix}",
-                                 rest_api_name=f"GainsIQ API {env_name}",
-                                 description=f"API for GainsIQ workout tracker ({env_name}).",
-                                 default_cors_preflight_options={
-                                     "allow_origins": Cors.ALL_ORIGINS,
-                                     "allow_methods": Cors.ALL_METHODS
-                                 })
+                         rest_api_name=f"GainsIQ API {env_name}",
+                         description=f"API for GainsIQ workout tracker ({env_name}).",
+                         deploy_options=apigateway.StageOptions(
+                             logging_level=apigateway.MethodLoggingLevel.INFO,
+                             data_trace_enabled=True,
+                             metrics_enabled=True,
+                             access_log_destination=apigateway.LogGroupLogDestination(log_group),
+                         ),
+                         default_cors_preflight_options={
+                             "allow_origins": Cors.ALL_ORIGINS,
+                             "allow_methods": Cors.ALL_METHODS
+                         },
+                         cloud_watch_role=True
+                         )
+        
+        usage_plan = api.add_usage_plan(f"GainsIQUsagePlan{suffix}",
+                                name=f"GainsIQUsagePlan{suffix}",
+                                throttle={
+                                    "rate_limit": 5, 
+                                    "burst_limit": 10  
+                                })
+
+        usage_plan.add_api_stage(
+            stage=api.deployment_stage  
+        )
+        
 
         exercises = api.root.add_resource("exercises")
         exercises.add_method("POST", apigateway.LambdaIntegration(backend_lambda, proxy=True))
