@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, ChangeEvent } from 'react';
 import {
   Container,
   Grid,
@@ -23,24 +23,22 @@ import { environment, useApi } from './utils/ApiUtils';
 import { setWeightUnit } from './actions/UnitActions';
 import { useDispatch, useSelector } from 'react-redux';
 import { RootState } from './utils/types';
+import { updateWorkoutForm } from './reducers/workoutFormReducer';
 
 const WorkoutTracker: React.FC = () => {
   const dispatch = useDispatch();
   const unit = useSelector((state: RootState) => state.weightUnit.weightUnit);
+  const { selectedExercise, reps, setNumber, weight } = useSelector(
+    (state: RootState) => state.workoutForm
+  );
 
   const { fetchData } = useApi();
-  // TODO: Simply state management. Could just have [usersSet, setUsersSet] that gets updated on change.
-  const [exercises, setExercises] = useState<string[]>([]);
-  const [searchTerm, setSearchTerm] = useState<string>('');
-  const [newExercise, setNewExercise] = useState<string>('');
-  const [selectedExercise, setSelectedExercise] = useState<string>('');
-  const [reps, setReps] = useState<string>('');
-  const [setNumber, setSetNumber] = useState<string>('');
-  const [weight, setWeight] = useState<string>('');
-  const [confirmationMessage, setConfirmationMessage] = useState<string>('');
-  const [snackbarOpen, setSnackbarOpen] = useState<boolean>(false);
+  const [exercises, setExercises] = React.useState<string[]>([]);
+  const [searchTerm, setSearchTerm] = React.useState<string>('');
+  const [newExercise, setNewExercise] = React.useState<string>('');
+  const [confirmationMessage, setConfirmationMessage] = React.useState<string>('');
+  const [snackbarOpen, setSnackbarOpen] = React.useState<boolean>(false);
 
-  // TODO: Ensure we aren't absolutely spamming the API with requests when not needed.
   useEffect(() => {
     const fetchExercises = async () => {
       try {
@@ -53,7 +51,7 @@ const WorkoutTracker: React.FC = () => {
     };
 
     fetchExercises();
-  }, []);
+  }, [fetchData]);
 
   const filteredExercises = exercises.filter((exercise) =>
     exercise.toLowerCase().includes(searchTerm.toLowerCase())
@@ -87,8 +85,7 @@ const WorkoutTracker: React.FC = () => {
         )} lbs`
       );
       setSnackbarOpen(true);
-      setReps('');
-      setSetNumber('');
+      dispatch(updateWorkoutForm({ selectedExercise: '', reps: '', setNumber: '', weight: '' }));
     } catch (error) {
       console.error('Error logging workout:', error);
     }
@@ -140,6 +137,21 @@ const WorkoutTracker: React.FC = () => {
     }
   };
 
+  const handleSelectExerciseChange = (e: any) => {
+    dispatch(updateWorkoutForm({ selectedExercise: e.target.value as string }));
+  };
+
+  const handleRepsChange = (e: any) => {
+    dispatch(updateWorkoutForm({ reps: e.target.value as string }));
+  };
+
+  const handleSetNumberChange = (e: any) => {
+    dispatch(updateWorkoutForm({ setNumber: e.target.value as string }));
+  };
+
+  const handleWeightChange = (e: any) => {
+    dispatch(updateWorkoutForm({ weight: e.target.value }));
+  };
 
   return (
     <ThemeProvider theme={theme}>
@@ -147,7 +159,7 @@ const WorkoutTracker: React.FC = () => {
         <Paper elevation={3} sx={{ padding: '20px', backgroundColor: theme.palette.background.default }}>
           <Typography variant="h4" align="center" gutterBottom>
             Workout Tracker
-            <div>{environment === "preprod" ? "PREPROD - NOT REAL DATA" : ""}</div>
+            <div>{environment === 'preprod' ? 'PREPROD - NOT REAL DATA' : ''}</div>
           </Typography>
 
           <form onSubmit={handleSubmit}>
@@ -167,7 +179,7 @@ const WorkoutTracker: React.FC = () => {
                   <InputLabel>Select Exercise</InputLabel>
                   <Select
                     value={selectedExercise}
-                    onChange={(e) => setSelectedExercise(e.target.value)}
+                    onChange={handleSelectExerciseChange}
                     label="Select Exercise"
                   >
                     <MenuItem value="">-- Select an Exercise --</MenuItem>
@@ -187,11 +199,7 @@ const WorkoutTracker: React.FC = () => {
               <Grid item xs={12} sm={6}>
                 <FormControl fullWidth required>
                   <InputLabel>Reps</InputLabel>
-                  <Select
-                    value={reps}
-                    onChange={(e) => setReps(e.target.value)}
-                    label="Reps"
-                  >
+                  <Select value={reps} onChange={handleRepsChange} label="Reps">
                     <MenuItem value="">-- Select Reps --</MenuItem>
                     <MenuItem value="5 or below">5 or below</MenuItem>
                     {[...Array(10).keys()].map((n) => (
@@ -207,11 +215,7 @@ const WorkoutTracker: React.FC = () => {
               <Grid item xs={12} sm={6}>
                 <FormControl fullWidth required>
                   <InputLabel>Set Number</InputLabel>
-                  <Select
-                    value={setNumber}
-                    onChange={(e) => setSetNumber(e.target.value)}
-                    label="Sets"
-                  >
+                  <Select value={setNumber} onChange={handleSetNumberChange} label="Sets">
                     <MenuItem value="">-- Select Set Number --</MenuItem>
                     {[...Array(5).keys()].map((n) => (
                       <MenuItem key={n} value={(n + 1).toString()}>
@@ -228,7 +232,7 @@ const WorkoutTracker: React.FC = () => {
                   label="Weight"
                   type="number"
                   value={weight}
-                  onChange={(e) => setWeight(e.target.value)}
+                  onChange={handleWeightChange}
                   required
                 />
               </Grid>
@@ -241,7 +245,7 @@ const WorkoutTracker: React.FC = () => {
                     onChange={(e) => {
                       const value = e.target.value;
                       if (value === 'lbs' || value === 'kg') {
-                        dispatch(setWeightUnit(value as 'lbs' | 'kg'))
+                        dispatch(setWeightUnit(value as 'lbs' | 'kg'));
                       }
                     }}
                     label="Unit"
