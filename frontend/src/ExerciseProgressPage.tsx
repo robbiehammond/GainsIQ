@@ -69,7 +69,7 @@ const ExerciseProgressPage: React.FC = () => {
     };
 
     loadExercises();
-  }, [fetchData]);
+  }, []);
 
   const dateToUnix = (d: Dayjs | null): number => {
     return d ? d.unix() : 0; 

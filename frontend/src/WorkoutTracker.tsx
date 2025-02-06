@@ -51,7 +51,7 @@ const WorkoutTracker: React.FC = () => {
     };
 
     fetchExercises();
-  }, [fetchData]);
+  }, []);
 
   const filteredExercises = exercises.filter((exercise) =>
     exercise.toLowerCase().includes(searchTerm.toLowerCase())
@@ -70,7 +70,7 @@ const WorkoutTracker: React.FC = () => {
       setNumber: parseInt(setNumber),
       weight: convertedWeight,
     };
-    console.log(JSON.stringify(SetUtils.toBackend(setData)));
+    const fifthSet = parseInt(setNumber) === 5
 
     try {
       await fetchData('/sets/log', {
@@ -85,7 +85,7 @@ const WorkoutTracker: React.FC = () => {
         )} lbs`
       );
       setSnackbarOpen(true);
-      dispatch(updateWorkoutForm({ selectedExercise: '', reps: '', setNumber: '', weight: '' }));
+      dispatch(updateWorkoutForm({ selectedExercise: selectedExercise, reps: '', setNumber: fifthSet ? "5" : String(parseInt(setNumber) + 1), weight: weight}));
     } catch (error) {
       console.error('Error logging workout:', error);
     }
