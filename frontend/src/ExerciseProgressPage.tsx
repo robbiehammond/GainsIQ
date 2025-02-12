@@ -45,7 +45,7 @@ const ExerciseProgressPage: React.FC = () => {
 
   const [exercises, setExercises] = useState<string[]>([]);
   const [selectedExercise, setSelectedExercise] = useState('');
-  const [startDate, setStartDate] = useState<Dayjs | null>(dayjs().subtract(14, 'day')); 
+  const [startDate, setStartDate] = useState<Dayjs | null>(dayjs().subtract(6, 'month')); 
   const [endDate, setEndDate] = useState<Dayjs | null>(dayjs());
   const [setsData, setSetsData] = useState<WorkoutSet[]>([]);
   const [chartType, setChartType] = useState<'average' | '1rm'>('average');
