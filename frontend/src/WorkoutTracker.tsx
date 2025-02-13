@@ -24,8 +24,12 @@ import { setWeightUnit } from './actions/UnitActions';
 import { useDispatch, useSelector } from 'react-redux';
 import { RootState } from './utils/types';
 import { updateWorkoutForm } from './reducers/workoutFormReducer';
+import { GainsIQClient } from 'gainsiq-sdk';
+
 
 const WorkoutTracker: React.FC = () => {
+  // TODO: Use client for all API calls. 
+  const client = new GainsIQClient("fake url");
   const dispatch = useDispatch();
   const unit = useSelector((state: RootState) => state.weightUnit.weightUnit);
   const { selectedExercise, reps, setNumber, weight } = useSelector(
