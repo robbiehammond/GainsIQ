@@ -11,7 +11,7 @@ import {
   MenuItem,
   TextField,
 } from '@mui/material';
-import { useApi } from './utils/ApiUtils';
+import { client } from './utils/ApiUtils';
 
 import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
@@ -30,19 +30,9 @@ import {
   ResponsiveContainer,
   LineChart,
 } from 'recharts';
-
-interface WorkoutSet {
-  workoutId?: string;
-  exercise?: string;
-  reps?: string;  
-  sets?: string;  
-  weight?: string;
-  timestamp?: string;  
-}
+import { WorkoutSet } from 'gainsiq-sdk';
 
 const ExerciseProgressPage: React.FC = () => {
-  const { fetchData } = useApi();
-
   const [exercises, setExercises] = useState<string[]>([]);
   const [selectedExercise, setSelectedExercise] = useState('');
   const [startDate, setStartDate] = useState<Dayjs | null>(dayjs().subtract(6, 'month')); 
@@ -54,7 +44,7 @@ const ExerciseProgressPage: React.FC = () => {
   useEffect(() => {
     const loadExercises = async () => {
       try {
-        const response = await fetchData<string[]>('/exercises', { method: 'GET' });
+        const response = await client.getExercises();
         let data: string[];
         if (typeof response === 'string') {
           data = JSON.parse(response);
@@ -92,24 +82,9 @@ const ExerciseProgressPage: React.FC = () => {
       const startTs = dateToUnix(startDate);
       const endTs = dateToUnix(endDate);
 
-      const queryParams = new URLSearchParams({
-        exerciseName: selectedExercise,
-        start: startTs.toString(),
-        end: endTs.toString(),
-      }).toString();
-
-      const response = await fetchData<WorkoutSet[]>(
-        `/sets/by_exercise?${queryParams}`,
-        { method: 'GET' }
-      );
-
-      let parsed: WorkoutSet[];
-      if (typeof response === 'string') {
-        parsed = JSON.parse(response);
-      } else {
-        parsed = response || [];
-      }
-      setSetsData(parsed);
+      const response = await client.getSetsByExercise({exerciseName: selectedExercise, start: startTs, end: endTs});
+      setSetsData(response);
+      
     } catch (err) {
       console.error('Error fetching sets by exercise:', err);
       setError('Failed to fetch sets. See console for details.');
@@ -133,13 +108,14 @@ const ExerciseProgressPage: React.FC = () => {
         };
       }
 
-      const weight = set.weight ? parseFloat(set.weight) : 0;
-      const reps = set.reps ? parseInt(set.reps) : 0;
+      const weight = set.weight ? set.weight : 0;
+      const reps = set.reps ? set.reps : 0;
 
-      acc[dateKey].totalWeight += weight;
-      acc[dateKey].totalReps += reps;
+
+      acc[dateKey].totalWeight += parseFloat(weight.toString());
+      acc[dateKey].totalReps += parseInt(reps.toString());;
       acc[dateKey].setCount += 1;
-
+      console.log(acc[dateKey].totalWeight);
       return acc;
     }, {} as Record<string, { date: string; totalWeight: number; totalReps: number; setCount: number }>)
   ).map((group) => {

@@ -1,15 +1,14 @@
 import React, { useEffect, useState } from 'react';
 import { Container, Typography, Paper } from '@mui/material';
-import { useApi } from './utils/ApiUtils';
+import { client, } from './utils/ApiUtils';
 
 const AnalysisView: React.FC = () => {
-  const { fetchData } = useApi();
   const [analysis, setAnalysis] = useState<any>(null);
 
   useEffect(() => {
     const fetchAnalysis = async () => {
       try {
-        const response = await fetchData('/analysis');
+        const response = await client.fetchAnalysis();
         setAnalysis(response);
       } catch (error) {
         console.error('Error fetching analysis:', error);
@@ -17,7 +16,7 @@ const AnalysisView: React.FC = () => {
     };
 
     fetchAnalysis();
-  }, [fetchData]);
+  }, []);
 
   return (
     <Container sx={{ padding: '40px 20px' }}>

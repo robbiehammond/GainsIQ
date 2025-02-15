@@ -31,6 +31,8 @@ Rebuild the frontend again and then deploy.
 Note there's a script `build_and_deploy_prod.sh` that will do most of this for you. You'll still have to double-deploy; 
 just run the script again after fetching the app url.
 
+Note that there's an SDK to handle API calls to the backend, which can be found here: https://github.com/robbiehammond/gainsiq-sdk.
+
 ## Design
 Just so I remember vaguely how this works:
 ![](doc/GainsIQ.png)

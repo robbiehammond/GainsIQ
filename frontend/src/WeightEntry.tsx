@@ -14,6 +14,7 @@ import { amber, indigo } from '@mui/material/colors';
 import { theme } from './style/theme';
 import { WeightEntryData } from './models/WeightEntryData';
 import { apiUrl } from './utils/ApiUtils';
+import { client } from './utils/ApiUtils';
 
 
 
@@ -26,18 +27,7 @@ const WeightEntry: React.FC = () => {
   useEffect(() => {
     const fetchWeights = async () => {
       try {
-        const response = await fetch(`${apiUrl}/weight`, {
-          method: 'GET',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-        });
-
-        if (!response.ok) {
-          throw new Error('Failed to fetch weights');
-        }
-
-        const data = await response.json();
+        const data = await client.getWeights()
         setWeights(data || []);
       } catch (error) {
         console.error('Error fetching weights:', error);
@@ -51,28 +41,13 @@ const WeightEntry: React.FC = () => {
     if (!weight) return;
 
     try {
-      const response = await fetch(`${apiUrl}/weight`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ weight: parseFloat(weight) }),
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to log weight');
-      }
+      const response = await client.logWeight(parseFloat(weight));
 
       setConfirmationMessage(`Logged weight: ${weight} lbs`);
       setSnackbarOpen(true);
       setWeight('');
 
-      const updatedWeights = await fetch(`${apiUrl}/weight`, {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      }).then((res) => res.json());
+      const updatedWeights = await client.getWeights()
       setWeights(updatedWeights || []);
     } catch (error) {
       console.error('Error logging weight:', error);
@@ -87,27 +62,13 @@ const WeightEntry: React.FC = () => {
     }
 
     try {
-      const response = await fetch(`${apiUrl}/weight`, {
-        method: 'DELETE',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to delete most recent weight');
-      }
+      const _ = await client.deleteMostRecentWeight();
 
       setConfirmationMessage('Deleted the most recent weight entry.');
       setSnackbarOpen(true);
 
       // Refresh weight entries after deletion
-      const updatedWeights = await fetch(`${apiUrl}/weight`, {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      }).then((res) => res.json());
+      const updatedWeights = await client.getWeights();
       setWeights(updatedWeights || []);
     } catch (error) {
       console.error('Error deleting most recent weight:', error);

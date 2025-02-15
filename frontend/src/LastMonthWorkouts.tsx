@@ -16,7 +16,7 @@ import ExpandIcon from '@mui/icons-material/Expand';
 import { groupBy } from 'lodash'; 
 import { theme } from './style/theme';
 import { Set, SetUtils } from './models/Set';
-import { apiUrl } from './utils/ApiUtils';
+import { apiUrl, client } from './utils/ApiUtils';
 import DeleteIcon from '@mui/icons-material/Delete'; 
 import { useSelector } from 'react-redux';
 import { RootState } from './utils/types';
@@ -61,18 +61,8 @@ const LastMonthWorkouts: React.FC = () => {
   useEffect(() => {
     const fetchWorkouts = async () => {
       try {
-        const response = await fetch(`${apiUrl}/sets/last_month`, {
-          method: 'GET', 
-          headers: {
-            'Content-Type': 'application/json',
-          },
-        });
+        const data = await client.getLastMonthWorkouts();
 
-        if (!response.ok) {
-          throw new Error('Failed to fetch last month workouts');
-        }
-
-        const data = await response.json();
         setSets(data.map(SetUtils.fromBackend) || []);
         setLoading(false);
       } catch (error) {
@@ -118,17 +108,7 @@ const LastMonthWorkouts: React.FC = () => {
     };
   
     try {
-      const response = await fetch(`${apiUrl}/sets`, {
-        method: 'DELETE',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(payload),
-      });
-  
-      if (!response.ok) {
-        throw new Error('Failed to delete set');
-      }
+      const _ = client.deleteSet(payload);
   
       setSets((prevSets) =>
         prevSets.filter(
@@ -155,17 +135,7 @@ const LastMonthWorkouts: React.FC = () => {
     };
 
     try {
-      const response = await fetch(`${apiUrl}/sets/edit`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(payload),
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to update set');
-      }
+      const _ = client.editSet(payload);
 
       // Update local sets state
       setSets((prevSets) =>

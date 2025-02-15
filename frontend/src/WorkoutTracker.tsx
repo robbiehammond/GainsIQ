@@ -19,24 +19,21 @@ import {
 import { amber, indigo } from '@mui/material/colors';
 import { theme } from './style/theme';
 import { Set, SetUtils } from './models/Set';
-import { environment, useApi } from './utils/ApiUtils';
+import { environment, client } from './utils/ApiUtils';
 import { setWeightUnit } from './actions/UnitActions';
 import { useDispatch, useSelector } from 'react-redux';
 import { RootState } from './utils/types';
 import { updateWorkoutForm } from './reducers/workoutFormReducer';
-import { GainsIQClient } from 'gainsiq-sdk';
 
 
 const WorkoutTracker: React.FC = () => {
   // TODO: Use client for all API calls. 
-  const client = new GainsIQClient("fake url");
   const dispatch = useDispatch();
   const unit = useSelector((state: RootState) => state.weightUnit.weightUnit);
   const { selectedExercise, reps, setNumber, weight } = useSelector(
     (state: RootState) => state.workoutForm
   );
 
-  const { fetchData } = useApi();
   const [exercises, setExercises] = React.useState<string[]>([]);
   const [searchTerm, setSearchTerm] = React.useState<string>('');
   const [newExercise, setNewExercise] = React.useState<string>('');
@@ -46,7 +43,7 @@ const WorkoutTracker: React.FC = () => {
   useEffect(() => {
     const fetchExercises = async () => {
       try {
-        const data = await fetchData('/exercises');
+        const data = await client.getExercises();
         setExercises(data || []);
       } catch (error) {
         console.error('Error fetching exercises:', error);
@@ -77,10 +74,11 @@ const WorkoutTracker: React.FC = () => {
     const fifthSet = parseInt(setNumber) === 5
 
     try {
-      await fetchData('/sets/log', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(SetUtils.toBackend(setData)),
+      await client.logWorkoutSet({
+        exercise: setData.exercise,
+        reps: setData.reps,
+        sets: setData.setNumber,
+        weight: setData.weight,
       });
 
       setConfirmationMessage(
@@ -98,11 +96,7 @@ const WorkoutTracker: React.FC = () => {
   const handleAddExercise = async () => {
     if (newExercise && !exercises.includes(newExercise)) {
       try {
-        await fetchData('/exercises', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ exercise_name: newExercise }),
-        });
+        await client.addExercise(newExercise)
 
         setExercises([...exercises, newExercise]);
         setNewExercise('');
@@ -116,10 +110,7 @@ const WorkoutTracker: React.FC = () => {
 
   const handlePopLastSet = async () => {
     try {
-      const response = await fetchData('/sets/pop', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-      });
+      const response = await client.popLastSet();
 
       setConfirmationMessage(response.message);
       setSnackbarOpen(true);
@@ -130,10 +121,7 @@ const WorkoutTracker: React.FC = () => {
 
   const handleGenerateAnalysis = async () => {
     try {
-      const response = await fetchData('/analysis', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-      });
+      const response = await client.generateAnalysis();
       setConfirmationMessage(response.message);
       setSnackbarOpen(true);
     } catch (error) {
