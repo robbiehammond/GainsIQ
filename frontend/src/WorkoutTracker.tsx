@@ -27,7 +27,6 @@ import { updateWorkoutForm } from './reducers/workoutFormReducer';
 
 
 const WorkoutTracker: React.FC = () => {
-  // TODO: Use client for all API calls. 
   const dispatch = useDispatch();
   const unit = useSelector((state: RootState) => state.weightUnit.weightUnit);
   const { selectedExercise, reps, setNumber, weight } = useSelector(

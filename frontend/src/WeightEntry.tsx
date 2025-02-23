@@ -13,10 +13,22 @@ import {
 import { amber, indigo } from '@mui/material/colors';
 import { theme } from './style/theme';
 import { WeightEntryData } from './models/WeightEntryData';
-import { apiUrl } from './utils/ApiUtils';
-import { client } from './utils/ApiUtils';
+import { apiUrl, client } from './utils/ApiUtils';
 
+// Recharts imports
+import {
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  Legend,
+  ResponsiveContainer,
+} from 'recharts';
 
+// For date formatting in ticks/tooltip
+import dayjs from 'dayjs';
 
 const WeightEntry: React.FC = () => {
   const [weight, setWeight] = useState<string>('');
@@ -27,7 +39,7 @@ const WeightEntry: React.FC = () => {
   useEffect(() => {
     const fetchWeights = async () => {
       try {
-        const data = await client.getWeights()
+        const data = await client.getWeights();
         setWeights(data || []);
       } catch (error) {
         console.error('Error fetching weights:', error);
@@ -41,13 +53,13 @@ const WeightEntry: React.FC = () => {
     if (!weight) return;
 
     try {
-      const response = await client.logWeight(parseFloat(weight));
-
+      await client.logWeight(parseFloat(weight));
       setConfirmationMessage(`Logged weight: ${weight} lbs`);
       setSnackbarOpen(true);
       setWeight('');
 
-      const updatedWeights = await client.getWeights()
+      // Refresh the list of weights
+      const updatedWeights = await client.getWeights();
       setWeights(updatedWeights || []);
     } catch (error) {
       console.error('Error logging weight:', error);
@@ -62,8 +74,7 @@ const WeightEntry: React.FC = () => {
     }
 
     try {
-      const _ = await client.deleteMostRecentWeight();
-
+      await client.deleteMostRecentWeight();
       setConfirmationMessage('Deleted the most recent weight entry.');
       setSnackbarOpen(true);
 
@@ -74,6 +85,23 @@ const WeightEntry: React.FC = () => {
       console.error('Error deleting most recent weight:', error);
     }
   };
+
+  // Sort weights by timestamp in ascending order
+  const sortedWeights = [...weights].sort(
+    (a, b) => parseInt(a.timestamp) - parseInt(b.timestamp)
+  );
+
+  /**
+   * Prepare the data for Recharts:
+   *  - Use "time" as a numeric value for the x-axis.
+   *  - Recharts expects "date" to be a number if we specify type="number" and scale="time" in <XAxis>.
+   *  - Multiply by 1000 because your data looks like it's in Unix seconds, whereas JS timestamps are milliseconds.
+   */
+  const chartData = sortedWeights.map((entry) => ({
+    // Convert to numeric timestamp in milliseconds
+    time: parseInt(entry.timestamp) * 1000,
+    weight: entry.weight,
+  }));
 
   return (
     <ThemeProvider theme={theme}>
@@ -130,6 +158,56 @@ const WeightEntry: React.FC = () => {
             </Alert>
           </Snackbar>
 
+          {/* Time-based Chart */}
+          <Typography variant="h5" gutterBottom sx={{ marginTop: '20px' }}>
+            Weight Over Time
+          </Typography>
+          {chartData.length > 0 ? (
+            <div style={{ width: '100%', height: 300 }}>
+              <ResponsiveContainer>
+                <LineChart data={chartData}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  {/* 
+                      type="number" => numeric axis
+                      scale="time" => interprets the numeric values as times
+                      domain={['dataMin', 'dataMax']} => auto-fit the chart 
+                  */}
+                  <XAxis
+                    dataKey="time"
+                    type="number"
+                    scale="time"
+                    domain={['dataMin', 'dataMax']}
+                    // Format the ticks as e.g. "Jan 1" or "2025-01-01"
+                    tickFormatter={(timestamp) =>
+                      dayjs(timestamp).format('MMM D')
+                    }
+                  />
+                  <YAxis
+                    label={{ value: 'lbs', angle: -90, position: 'insideLeft' }}
+                    domain={['dataMin - 5', 'dataMax + 5']}
+                  />
+                  <Tooltip
+                    // Show a friendly date format in the tooltip
+                    labelFormatter={(timestamp) =>
+                      dayjs(timestamp).format('MMM D, YYYY')
+                    }
+                  />
+                  <Legend />
+                  <Line
+                    type="monotone"
+                    dataKey="weight"
+                    stroke="#8884d8"
+                    activeDot={{ r: 8 }}
+                    name="Weight (lbs)"
+                  />
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
+          ) : (
+            <Typography>No weights logged yet.</Typography>
+          )}
+
+          {/* Keep listing the individual entries below, if desired */}
           <Typography variant="h5" gutterBottom sx={{ marginTop: '20px' }}>
             Logged Weights
           </Typography>
@@ -140,9 +218,7 @@ const WeightEntry: React.FC = () => {
                 elevation={1}
                 sx={{ padding: '10px', marginBottom: '10px', backgroundColor: amber[50] }}
               >
-                <Typography>
-                  Weight: {entry.weight} lbs
-                </Typography>
+                <Typography>Weight: {entry.weight} lbs</Typography>
                 <Typography>
                   Date: {new Date(parseInt(entry.timestamp) * 1000).toLocaleDateString()}
                 </Typography>
