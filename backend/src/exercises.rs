@@ -22,7 +22,7 @@ pub async fn add_exercise(client: &dyn DynamoDb, table_name: &str, exercise_name
 pub async fn get_exercises(client: &dyn DynamoDb, table_name: &str) -> Response {
     match client.scan_exercises(table_name).await {
         Ok(items) => {
-            let exercises: Vec<String> = items
+            let mut exercises: Vec<String> = items
                 .into_iter()
                 .filter_map(|item| {
                     item.get("exerciseName")
@@ -30,7 +30,7 @@ pub async fn get_exercises(client: &dyn DynamoDb, table_name: &str) -> Response 
                 })
                 .collect();
 
-            // Convert the exercises list to a JSON array
+            exercises.sort_by_key(|s| s.to_ascii_lowercase());
             let json_body = serde_json::to_string(&exercises).unwrap_or("[]".to_string());
             success_response(200, json_body)
         }
