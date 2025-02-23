@@ -27,7 +27,6 @@ import {
   ResponsiveContainer,
 } from 'recharts';
 
-// For date formatting in ticks/tooltip
 import dayjs from 'dayjs';
 
 const WeightEntry: React.FC = () => {
@@ -58,7 +57,6 @@ const WeightEntry: React.FC = () => {
       setSnackbarOpen(true);
       setWeight('');
 
-      // Refresh the list of weights
       const updatedWeights = await client.getWeights();
       setWeights(updatedWeights || []);
     } catch (error) {
@@ -78,7 +76,6 @@ const WeightEntry: React.FC = () => {
       setConfirmationMessage('Deleted the most recent weight entry.');
       setSnackbarOpen(true);
 
-      // Refresh weight entries after deletion
       const updatedWeights = await client.getWeights();
       setWeights(updatedWeights || []);
     } catch (error) {
@@ -94,11 +91,9 @@ const WeightEntry: React.FC = () => {
   /**
    * Prepare the data for Recharts:
    *  - Use "time" as a numeric value for the x-axis.
-   *  - Recharts expects "date" to be a number if we specify type="number" and scale="time" in <XAxis>.
-   *  - Multiply by 1000 because your data looks like it's in Unix seconds, whereas JS timestamps are milliseconds.
+   *  - Multiply by 1000 because data is in Unix seconds, whereas JS timestamps are milliseconds.
    */
   const chartData = sortedWeights.map((entry) => ({
-    // Convert to numeric timestamp in milliseconds
     time: parseInt(entry.timestamp) * 1000,
     weight: entry.weight,
   }));
@@ -167,17 +162,11 @@ const WeightEntry: React.FC = () => {
               <ResponsiveContainer>
                 <LineChart data={chartData}>
                   <CartesianGrid strokeDasharray="3 3" />
-                  {/* 
-                      type="number" => numeric axis
-                      scale="time" => interprets the numeric values as times
-                      domain={['dataMin', 'dataMax']} => auto-fit the chart 
-                  */}
                   <XAxis
                     dataKey="time"
                     type="number"
                     scale="time"
                     domain={['dataMin', 'dataMax']}
-                    // Format the ticks as e.g. "Jan 1" or "2025-01-01"
                     tickFormatter={(timestamp) =>
                       dayjs(timestamp).format('MMM D')
                     }
@@ -187,7 +176,6 @@ const WeightEntry: React.FC = () => {
                     domain={['dataMin - 5', 'dataMax + 5']}
                   />
                   <Tooltip
-                    // Show a friendly date format in the tooltip
                     labelFormatter={(timestamp) =>
                       dayjs(timestamp).format('MMM D, YYYY')
                     }
