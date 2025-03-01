@@ -30,6 +30,14 @@ pub async fn handler(event: LambdaEvent<Value>) -> Result<Value, Error> {
     };
     println!("Raw Request: {}", request_body_json);
 
+    let api_key = event.payload.get("headers")
+        .and_then(|headers| headers.get("x-api-key"))
+        .and_then(|v| v.as_str())
+        .unwrap_or("unknown");
+
+    println!("{}", api_key);
+
+
     let body: RequestBody = serde_json::from_value(request_body_json.clone()).unwrap_or_else(|_| {
         warn!("Failed to parse request body, using empty defaults");
         RequestBody {

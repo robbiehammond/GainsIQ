@@ -1,4 +1,4 @@
-import React, { useEffect, ChangeEvent } from 'react';
+import React, { useEffect } from 'react';
 import {
   Container,
   Grid,
@@ -18,7 +18,7 @@ import {
 } from '@mui/material';
 import { amber, indigo } from '@mui/material/colors';
 import { theme } from './style/theme';
-import { Set, SetUtils } from './models/Set';
+import { Set } from './models/Set';
 import { environment, client } from './utils/ApiUtils';
 import { setWeightUnit } from './actions/UnitActions';
 import { useDispatch, useSelector } from 'react-redux';
