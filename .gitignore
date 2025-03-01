@@ -37,3 +37,5 @@ web-build/
 
 expo-env.d.ts
 # @end expo-cli
+
+backend/api_key_map.json

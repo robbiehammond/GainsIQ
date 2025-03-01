@@ -1,6 +1,6 @@
 use aws_sdk_dynamodb::Client as DDBClient;
 use aws_sdk_sqs::Client as SQSClient;
-use backend_rs::analysis;
+use backend_rs::{analysis, api_key_mapper::get_user_for_api_key};
 use lambda_runtime::{Error, LambdaEvent};
 use log::warn;
 use serde_json::Value;
@@ -35,7 +35,12 @@ pub async fn handler(event: LambdaEvent<Value>) -> Result<Value, Error> {
         .and_then(|v| v.as_str())
         .unwrap_or("unknown");
 
-    println!("{}", api_key);
+    let username = match get_user_for_api_key(api_key) {
+        Some(name) => name,
+        None => "unkonwn"
+    };
+    
+    println!("Request from user: {}", username);
 
 
     let body: RequestBody = serde_json::from_value(request_body_json.clone()).unwrap_or_else(|_| {
