@@ -28,12 +28,16 @@ class GainsIQStack(Stack):
             config = json.load(config_file)
             email = config.get('email')
             openai_key = config.get('openai_key')
+            api_keys = config.get('api_keys', {})
         
         if not email:
             raise ValueError("email not set in config file")
         
         if not openai_key:
             raise ValueError("openai_key not set in config file.")
+        
+        # Convert the API keys map to a JSON string
+        api_keys_json = json.dumps(api_keys)
 
         is_preprod = env_name == "preprod"
 
@@ -153,7 +157,9 @@ class GainsIQStack(Stack):
                                                    'EXERCISES_TABLE': exercises_table.table_name,
                                                    'SETS_TABLE': sets_table.table_name,
                                                    'WEIGHT_TABLE': weight_table.table_name,
-                                                   'QUEUE_URL': processing_lambda_trigger_queue.queue_url
+                                                   'QUEUE_URL': processing_lambda_trigger_queue.queue_url,
+                                                   'API_KEY_MAP': api_keys_json  
+
                                                })
         
         log_group = logs.LogGroup(self, f"GainsIQApiLogs{suffix}",
