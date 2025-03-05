@@ -35,11 +35,15 @@ pub async fn handler(event: LambdaEvent<Value>) -> Result<Value, Error> {
         .and_then(|v| v.as_str())
         .unwrap_or("unknown");
 
+
     let username = match get_user_for_api_key(api_key) {
         Some(name) => name,
-        None => "unkonwn"
+        None => {
+            println!("Unauthorized: Invalid API key: {}", api_key);
+            return Ok(serde_json::to_value(error_response(401, "Unauthorized: Invalid API key".to_string()))?);
+        }
     };
-    
+
     println!("Request from user: {}", username);
 
 
