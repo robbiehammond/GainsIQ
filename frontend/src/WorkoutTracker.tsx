@@ -24,11 +24,13 @@ import { setWeightUnit } from './actions/UnitActions';
 import { useDispatch, useSelector } from 'react-redux';
 import { RootState } from './utils/types';
 import { updateWorkoutForm } from './reducers/workoutFormReducer';
+import { setCuttingState } from './actions/CuttingActions';
 
 
 const WorkoutTracker: React.FC = () => {
   const dispatch = useDispatch();
   const unit = useSelector((state: RootState) => state.weightUnit.weightUnit);
+  const weightModulation = useSelector((state: RootState) => state.weightModulation.cuttingState)
   const { selectedExercise, reps, setNumber, weight } = useSelector(
     (state: RootState) => state.workoutForm
   );
@@ -78,6 +80,7 @@ const WorkoutTracker: React.FC = () => {
         reps: setData.reps,
         sets: setData.setNumber,
         weight: setData.weight,
+        isCutting: weightModulation === "CUTTING" ? true : false
       });
 
       setConfirmationMessage(
@@ -217,7 +220,7 @@ const WorkoutTracker: React.FC = () => {
                 </FormControl>
               </Grid>
 
-              <Grid item xs={12} sm={6}>
+              <Grid item xs={12} sm={4}>
                 <TextField
                   fullWidth
                   label="Weight"
@@ -228,7 +231,7 @@ const WorkoutTracker: React.FC = () => {
                 />
               </Grid>
 
-              <Grid item xs={12} sm={6}>
+              <Grid item xs={12} sm={4}>
                 <FormControl fullWidth required>
                   <InputLabel>Unit</InputLabel>
                   <Select
@@ -243,6 +246,25 @@ const WorkoutTracker: React.FC = () => {
                   >
                     <MenuItem value="lbs">Pounds (lbs)</MenuItem>
                     <MenuItem value="kg">Kilograms (kg)</MenuItem>
+                  </Select>
+                </FormControl>
+              </Grid>
+
+              <Grid item xs={12} sm={4}>
+                <FormControl fullWidth required>
+                  <InputLabel>Cutting?</InputLabel>
+                  <Select
+                    value={weightModulation}
+                    onChange={(e) => {
+                      const value = e.target.value;
+                      if (value === 'CUTTING' || value === 'BULKING') {
+                        dispatch(setCuttingState(value as 'CUTTING' | 'BULKING'));
+                      }
+                    }}
+                    label="Unit"
+                  >
+                    <MenuItem value="CUTTING">Cutting</MenuItem>
+                    <MenuItem value="BULKING">Bulking</MenuItem>
                   </Select>
                 </FormControl>
               </Grid>
