@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, fmt};
 
 use async_trait::async_trait;
 use aws_sdk_dynamodb::{types::AttributeValue, Client};
@@ -224,6 +224,22 @@ impl DynamoDb for Client {
 }
 
 #[derive(Deserialize, Debug)]
+pub enum WeightModulation {
+    Cutting,
+    Bulking
+}
+
+// Implement Display trait for WeightModulation
+impl fmt::Display for WeightModulation {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            WeightModulation::Cutting => write!(f, "Cutting"),
+            WeightModulation::Bulking => write!(f, "Bulking"),
+        }
+    }
+}
+
+#[derive(Deserialize, Debug)]
 pub struct RequestBody {
     #[serde(rename = "workoutId")]
     pub workout_id: Option<String>,
@@ -234,6 +250,8 @@ pub struct RequestBody {
     pub sets: Option<i32>,
     pub weight: Option<f32>,
     pub action: Option<String>,
+    #[serde(rename = "isCutting")] // TODO: Fix this!
+    pub weight_modulation: Option<WeightModulation>,
 
     // For querying by timerange
     pub start: Option<i64>,

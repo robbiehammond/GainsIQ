@@ -6,6 +6,7 @@ use log::warn;
 use serde_json::Value;
 use std::env;
 use crate::{weight, exercises, sets, utils::{error_response, RequestBody}};
+use crate::utils::WeightModulation::{Cutting, Bulking};
 
 
 pub async fn handler(event: LambdaEvent<Value>) -> Result<Value, Error> {
@@ -59,7 +60,8 @@ pub async fn handler(event: LambdaEvent<Value>) -> Result<Value, Error> {
             weight: request_body_json.get("weight").and_then(|v| v.as_f64().map(|v| v as f32)),
             action: request_body_json.get("action").and_then(|v| v.as_str().map(String::from)),
             start: request_body_json.get("start").and_then(|v| v.as_u64().map(|v| v as i64)),
-            end: request_body_json.get("end").and_then(|v| v.as_u64().map(|v| v as i64))
+            end: request_body_json.get("end").and_then(|v| v.as_u64().map(|v| v as i64)),
+            weight_modulation: request_body_json.get("isCutting").and_then(|v| v.as_bool().map(|b| (if b { Cutting } else { Bulking })))
         }
     });
     println!("Request path: {}", path);
@@ -89,7 +91,7 @@ pub async fn handler(event: LambdaEvent<Value>) -> Result<Value, Error> {
 
         // Set endpoints
         ("POST", "/sets/log") => {
-            let response = sets::log_set(&dynamodb_client, &sets_table_name, body.exercise.unwrap(), body.reps.unwrap(), body.sets.unwrap(), body.weight.unwrap()).await;
+            let response = sets::log_set(&dynamodb_client, &sets_table_name, body.exercise.unwrap(), body.reps.unwrap(), body.sets.unwrap(), body.weight.unwrap(), body.weight_modulation.unwrap_or(Bulking)).await;
             Ok(serde_json::to_value(response)?)
         }
         ("GET", "/sets/last_month") => {

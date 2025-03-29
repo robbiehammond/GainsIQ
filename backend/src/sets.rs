@@ -4,9 +4,7 @@ use serde::Deserialize;
 use std::collections::HashMap;
 use uuid::Uuid;
 
-use crate::{
-    utils::{success_response, error_response, DynamoDb, Response},
-};
+use crate::{utils::{error_response, success_response, DynamoDb, Response, WeightModulation}, weight};
 
 #[derive(Deserialize)]
 pub struct LogSetRequest {
@@ -23,6 +21,7 @@ pub async fn log_set(
     reps: String,
     sets: i32,
     weight: f32,
+    weight_modulation: WeightModulation
 ) -> Response {
     let workout_id = Uuid::new_v4().to_string();
     let timestamp = Utc::now().timestamp();
@@ -34,6 +33,7 @@ pub async fn log_set(
     item.insert("reps".to_string(), AttributeValue::S(reps.to_string()));
     item.insert("sets".to_string(), AttributeValue::N(sets.to_string()));
     item.insert("weight".to_string(), AttributeValue::N(weight.to_string()));
+    item.insert("weight_modulation".to_string(), AttributeValue::S(weight_modulation.to_string()));
 
     match client.put_set(table_name, item).await {
         Ok(_) => {
@@ -85,6 +85,10 @@ pub async fn get_last_month_workouts(client: &dyn DynamoDb, table_name: &str) ->
 
                     if let Some(weight_value) = item.get("weight") {
                         workout.insert("weight".to_string(), extract_string_or_number(weight_value));
+                    }
+
+                    if let Some(weight_modulation) = item.get("weight_modulation") {
+                        workout.insert("weight_modulation".to_string(), extract_string_or_number(weight_modulation));
                     }
 
                     workout.insert(
@@ -226,6 +230,9 @@ pub async fn get_sets_for_exercise(
                     }
                     if let Some(val) = item.get("timestamp") {
                         set_map.insert("timestamp".to_string(), extract_attr_string(val));
+                    }
+                    if let Some(val) = item.get("weight_modulation") {
+                        set_map.insert("weight_modulation".to_string(), extract_attr_string(val));
                     }
                     set_map
                 })
