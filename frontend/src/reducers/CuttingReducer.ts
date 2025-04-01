@@ -6,7 +6,7 @@ interface CuttingState {
 }
 
 const initialState: CuttingState = {
-    cuttingState: 'BULKING'
+    cuttingState: 'CUTTING'
 };
 
 export default function cuttingStateReducer(
