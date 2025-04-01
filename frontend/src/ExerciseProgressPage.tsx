@@ -92,43 +92,52 @@ const ExerciseProgressPage: React.FC = () => {
   };
 
   const chartData = Object.values(
-    setsData.reduce((acc, set) => {
-      const dateKey = set.timestamp
-        ? new Date(parseInt(set.timestamp) * 1000).toLocaleDateString()
-        : '';
+    setsData.reduce(
+      (acc, set) => {
+        const dateKey = set.timestamp
+          ? new Date(parseInt(set.timestamp) * 1000).toLocaleDateString()
+          : '';
+        if (!dateKey) return acc;
 
-      if (!dateKey) return acc;
+        if (!acc[dateKey]) {
+          acc[dateKey] = {
+            date: dateKey,
+            totalWeight: 0,
+            totalReps: 0,
+            setCount: 0,
+            cutting: false, // Assuming not cutting by default
+          };
+        }
 
-      if (!acc[dateKey]) {
-        acc[dateKey] = {
-          date: dateKey,
-          totalWeight: 0,
-          totalReps: 0,
-          setCount: 0,
-        };
-      }
+        const weight = set.weight ? set.weight : 0;
+        const reps = set.reps ? set.reps : 0;
+        acc[dateKey].totalWeight += parseFloat(weight.toString());
+        acc[dateKey].totalReps += parseInt(reps.toString());
+        acc[dateKey].setCount += 1;
 
-      const weight = set.weight ? set.weight : 0;
-      const reps = set.reps ? set.reps : 0;
-
-
-      acc[dateKey].totalWeight += parseFloat(weight.toString());
-      acc[dateKey].totalReps += parseInt(reps.toString());;
-      acc[dateKey].setCount += 1;
-      return acc;
-    }, {} as Record<string, { date: string; totalWeight: number; totalReps: number; setCount: number }>)
+        // Mark the day as "cutting" if any set has weight_modulation === 'cutting'
+        console.log(set.weight_modulation);
+        if (set.weight_modulation === "Cutting") {
+          acc[dateKey].cutting = true;
+        }
+        return acc;
+      },
+      {} as Record<
+        string,
+        { date: string; totalWeight: number; totalReps: number; setCount: number; cutting: boolean }
+      >
+    )
   ).map((group) => {
     const avgWeight = group.totalWeight / group.setCount;
     const avgReps = group.totalReps / group.setCount;
-
-    // Brzycki formula for estimated 1RM. Not because the actual 1RM matters, but because it's a good indicator of progress
+    // Brzycki formula for estimated 1RM
     const estimated1RM = avgReps > 0 ? avgWeight / (1.0278 - 0.0278 * avgReps) : 0;
-
     return {
       date: group.date,
       avgWeight,
       avgReps,
-      estimated1RM, 
+      estimated1RM,
+      cutting: group.cutting, // pass the flag through
     };
   });
 
@@ -237,6 +246,11 @@ const ExerciseProgressPage: React.FC = () => {
                   dataKey="avgWeight"
                   stroke="#8884d8"
                   name="Avg Weight"
+                    dot={(props) => {
+                    const { cx, cy, payload } = props;
+                    const fillColor = payload.cutting ? '#FFC0CB' : '#800080';
+                    return <circle cx={cx} cy={cy} r={5} fill={fillColor} />;
+                  }}
                   activeDot={{ r: 8 }}
                 />
                 <Bar
@@ -262,6 +276,11 @@ const ExerciseProgressPage: React.FC = () => {
                   dataKey="estimated1RM"
                   stroke="#ff7300"
                   name="Estimated 1RM"
+                  dot={(props) => {
+                    const { cx, cy, payload } = props;
+                    const fillColor = payload.cutting ? '#FFC0CB' : '#800080';
+                    return <circle cx={cx} cy={cy} r={5} fill={fillColor} />;
+                  }}
                   activeDot={{ r: 8 }}
                 />
               </LineChart>
