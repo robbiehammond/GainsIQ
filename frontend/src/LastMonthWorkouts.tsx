@@ -241,15 +241,15 @@ const LastMonthWorkouts: React.FC = () => {
                               sx={{ padding: '10px', marginBottom: '10px' }}
                             >
                               <Typography variant="h6">{setItem.exercise}</Typography>
-                              {/* 
-                                For display, convert from lbs to the chosen unit:
-                              */}
                               <Typography>
                                 Set #: {setItem.setNumber}, Reps: {setItem.reps}, 
                                 Weight: {toDisplayWeight(setItem.weight, unit)} {unit}
                               </Typography>
                               <Typography>
                                 Time: {new Date((setItem.timestamp || 0) * 1000).toLocaleString()}
+                              </Typography>
+                              <Typography>
+                                Bulking or Cutting?: {setItem.weight_modulation ?? "Bulking"}
                               </Typography>
                               <Button variant="text" onClick={() => startEditing(setItem)}>
                                 Edit

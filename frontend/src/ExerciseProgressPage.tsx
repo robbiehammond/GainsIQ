@@ -115,7 +115,6 @@ const ExerciseProgressPage: React.FC = () => {
       acc[dateKey].totalWeight += parseFloat(weight.toString());
       acc[dateKey].totalReps += parseInt(reps.toString());;
       acc[dateKey].setCount += 1;
-      console.log(acc[dateKey].totalWeight);
       return acc;
     }, {} as Record<string, { date: string; totalWeight: number; totalReps: number; setCount: number }>)
   ).map((group) => {

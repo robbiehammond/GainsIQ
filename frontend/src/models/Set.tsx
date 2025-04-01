@@ -5,6 +5,7 @@ export interface Set {
     setNumber: number;
     timestamp?: number;
     workoutId?: string;
+    weight_modulation?: string;
 }
 
 export class SetUtils {
@@ -17,6 +18,7 @@ export class SetUtils {
         reps: item.reps,
         setNumber: item.sets, 
         timestamp: item.timestamp, 
+        weight_modulation: item.weight_modulation
       };
     }
 
