@@ -1,4 +1,6 @@
 import React, { useEffect, useState } from 'react';
+import { useSelector, useDispatch } from 'react-redux';
+import { updateWorkoutForm } from './reducers/workoutFormReducer';
 import {
   Container,
   Paper,
@@ -34,12 +36,13 @@ import { WorkoutSet } from 'gainsiq-sdk';
 
 const ExerciseProgressPage: React.FC = () => {
   const [exercises, setExercises] = useState<string[]>([]);
-  const [selectedExercise, setSelectedExercise] = useState('');
-  const [startDate, setStartDate] = useState<Dayjs | null>(dayjs().subtract(6, 'month')); 
+  const [startDate, setStartDate] = useState<Dayjs | null>(dayjs().subtract(6, 'month'));
   const [endDate, setEndDate] = useState<Dayjs | null>(dayjs());
   const [setsData, setSetsData] = useState<WorkoutSet[]>([]);
   const [chartType, setChartType] = useState<'average' | '1rm'>('average');
   const [error, setError] = useState('');
+  const dispatch = useDispatch();
+  const selectedExercise = useSelector((state: any) => state.workoutForm.selectedExercise);
 
   useEffect(() => {
     const loadExercises = async () => {
@@ -155,8 +158,8 @@ const ExerciseProgressPage: React.FC = () => {
               <InputLabel>Exercise</InputLabel>
               <Select
                 label="Exercise"
-                value={selectedExercise}
-                onChange={(e) => setSelectedExercise(e.target.value)}
+                      value={selectedExercise}
+                      onChange={(e) => dispatch(updateWorkoutForm({ selectedExercise: e.target.value }))}
               >
                 <MenuItem value="">
                   <em>-- Select an Exercise --</em>
