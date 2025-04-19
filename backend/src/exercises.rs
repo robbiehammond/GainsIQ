@@ -1,10 +1,5 @@
-use serde::{Deserialize, Serialize};
 use crate::utils::{error_response, success_response, DynamoDb, Response};
 
-#[derive(Deserialize, Serialize)]
-pub struct AddExerciseRequest {
-    pub exercise_name: String,
-}
 
 pub async fn add_exercise(client: &dyn DynamoDb, table_name: &str, exercise_name: &str) -> Response {
     match client.put_exercise(table_name, exercise_name).await {

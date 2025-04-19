@@ -239,24 +239,6 @@ impl fmt::Display for WeightModulation {
     }
 }
 
-#[derive(Deserialize, Debug)]
-pub struct RequestBody {
-    #[serde(rename = "workoutId")]
-    pub workout_id: Option<String>,
-    pub timestamp: Option<i64>,
-    pub exercise_name: Option<String>,
-    pub exercise: Option<String>,
-    pub reps: Option<String>,
-    pub sets: Option<i32>,
-    pub weight: Option<f32>,
-    pub action: Option<String>,
-    #[serde(rename = "isCutting")] // TODO: Fix this!
-    pub weight_modulation: Option<WeightModulation>,
-
-    // For querying by timerange
-    pub start: Option<i64>,
-    pub end: Option<i64>,
-}
 
 #[derive(Serialize)]
 pub struct Response {

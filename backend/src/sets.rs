@@ -1,18 +1,10 @@
 use aws_sdk_dynamodb::{types::AttributeValue, Client};
 use chrono::Utc;
-use serde::Deserialize;
 use std::collections::HashMap;
 use uuid::Uuid;
 
 use crate::{utils::{error_response, success_response, DynamoDb, Response, WeightModulation}, weight};
 
-#[derive(Deserialize)]
-pub struct LogSetRequest {
-    pub exercise: String,
-    pub reps: String,
-    pub sets: i32,
-    pub weight: f32,
-}
 
 pub async fn log_set(
     client: &dyn DynamoDb,

@@ -5,7 +5,8 @@ use lambda_runtime::{Error, LambdaEvent};
 use log::warn;
 use serde_json::Value;
 use std::env;
-use crate::{weight, exercises, sets, utils::{error_response, RequestBody}};
+use crate::{weight, exercises, sets, utils::error_response};
+use crate::requests::{AddExerciseRequest, DeleteExerciseRequest, LogSetRequest, EditSetRequest, DeleteSetRequest, LogWeightRequest};
 use crate::utils::WeightModulation::{Cutting, Bulking};
 
 
@@ -21,15 +22,6 @@ pub async fn handler(event: LambdaEvent<Value>) -> Result<Value, Error> {
     let weight_table_name = env::var("WEIGHT_TABLE").expect("WEIGHT_TABLE not set");
     let analysis_table_name = env::var("ANALYSES_TABLE").expect("ANALYSES_TABLE not set");
     let queue_url = env::var("QUEUE_URL").expect("QUEUE_URL not set.");
-
-    let payload_clone = event.payload.clone(); 
-
-
-    let request_body_json = match payload_clone.get("body") {
-        Some(Value::String(body)) => serde_json::from_str::<Value>(body).unwrap_or(Value::Null),
-        _ => Value::Null,
-    };
-    println!("Raw Request: {}", request_body_json);
 
     let api_key = event.payload.get("headers")
         .and_then(|headers| headers.get("x-api-key"))
@@ -48,25 +40,11 @@ pub async fn handler(event: LambdaEvent<Value>) -> Result<Value, Error> {
     println!("Request from user: {}", username);
 
 
-    let body: RequestBody = serde_json::from_value(request_body_json.clone()).unwrap_or_else(|_| {
-        warn!("Failed to parse request body, using empty defaults");
-        RequestBody {
-            timestamp: request_body_json.get("timestamp").and_then(|v| v.as_u64().map(|v| v as i64)),
-            workout_id: request_body_json.get("workoutId").and_then(|v| v.as_str().map(String::from)),
-            exercise_name: request_body_json.get("exercise_name").and_then(|v| v.as_str().map(String::from)),
-            exercise: request_body_json.get("exercise").and_then(|v| v.as_str().map(String::from)),
-            reps: request_body_json.get("reps").and_then(|v| v.as_str().map(String::from)),
-            sets: request_body_json.get("sets").and_then(|v| v.as_u64().map(|v| v as i32)),
-            weight: request_body_json.get("weight").and_then(|v| v.as_f64().map(|v| v as f32)),
-            action: request_body_json.get("action").and_then(|v| v.as_str().map(String::from)),
-            start: request_body_json.get("start").and_then(|v| v.as_u64().map(|v| v as i64)),
-            end: request_body_json.get("end").and_then(|v| v.as_u64().map(|v| v as i64)),
-            weight_modulation: request_body_json.get("isCutting").and_then(|v| v.as_bool().map(|b| (if b { Cutting } else { Bulking })))
-        }
-    });
-    println!("Request path: {}", path);
-    println!("Request method: {}", http_method);
-    println!("Request body: {:?}", body);
+    // Extract raw request body
+    let raw_body = event.payload
+        .get("body")
+        .and_then(|v| v.as_str())
+        .unwrap_or("");
 
     // Routing logic. TODO: Fix the unwraps.
     match (http_method, path) {
@@ -76,22 +54,63 @@ pub async fn handler(event: LambdaEvent<Value>) -> Result<Value, Error> {
             Ok(serde_json::to_value(response)?)
         },
         ("POST", "/exercises") => {
-            let response = exercises::add_exercise(&dynamodb_client, &exercises_table_name, &body.exercise_name.unwrap()).await;
+            // Parse the add exercise request
+            let req: AddExerciseRequest = match serde_json::from_str(raw_body) {
+                Ok(r) => r,
+                Err(e) => {
+                    warn!("Invalid AddExerciseRequest: {}", e);
+                    return Ok(serde_json::to_value(
+                        error_response(400, format!("Invalid request: {}", e))
+                    )?);
+                }
+            };
+            let response = exercises::add_exercise(
+                &dynamodb_client,
+                &exercises_table_name,
+                &req.exercise_name,
+            ).await;
             Ok(serde_json::to_value(response)?)
-        }
+        },
         ("DELETE", "/exercises") => {
+            // Parse the delete exercise request
+            let req: DeleteExerciseRequest = match serde_json::from_str(raw_body) {
+                Ok(r) => r,
+                Err(e) => {
+                    warn!("Invalid DeleteExerciseRequest: {}", e);
+                    return Ok(serde_json::to_value(
+                        error_response(400, format!("Invalid request: {}", e))
+                    )?);
+                }
+            };
             let response = exercises::delete_exercise(
                 &dynamodb_client,
                 &exercises_table_name,
-                &body.exercise_name.unwrap_or_default(),
-            )
-            .await;
+                &req.exercise_name,
+            ).await;
             Ok(serde_json::to_value(response)?)
-        }
+        },
 
         // Set endpoints
         ("POST", "/sets/log") => {
-            let response = sets::log_set(&dynamodb_client, &sets_table_name, body.exercise.unwrap(), body.reps.unwrap(), body.sets.unwrap(), body.weight.unwrap(), body.weight_modulation.unwrap_or(Bulking)).await;
+            // Parse log set request
+            let req: LogSetRequest = match serde_json::from_str(raw_body) {
+                Ok(r) => r,
+                Err(e) => {
+                    warn!("Invalid LogSetRequest: {}", e);
+                    return Ok(serde_json::to_value(
+                        error_response(400, format!("Invalid request: {}", e))
+                    )?);
+                }
+            };
+            let response = sets::log_set(
+                &dynamodb_client,
+                &sets_table_name,
+                req.exercise,
+                req.reps,
+                req.sets,
+                req.weight,
+                req.weight_modulation.unwrap_or(Bulking),
+            ).await;
             Ok(serde_json::to_value(response)?)
         }
         ("GET", "/sets/last_month") => {
@@ -125,31 +144,64 @@ pub async fn handler(event: LambdaEvent<Value>) -> Result<Value, Error> {
         }
         
         ("PUT", "/sets/edit") => {
-            // TODO: Error handling here.
-            let workout_id = body.workout_id.unwrap_or("".to_string());
-            let timestamp= body.timestamp.unwrap_or(0);
-    
+            // Parse edit set request
+            let req: EditSetRequest = match serde_json::from_str(raw_body) {
+                Ok(r) => r,
+                Err(e) => {
+                    warn!("Invalid EditSetRequest: {}", e);
+                    return Ok(serde_json::to_value(
+                        error_response(400, format!("Invalid request: {}", e))
+                    )?);
+                }
+            };
             let response = sets::edit_set(
                 &dynamodb_client,
                 &sets_table_name,
-                workout_id,
-                timestamp,
-                body.reps.clone(),
-                body.sets,
-                body.weight
+                req.workout_id,
+                req.timestamp,
+                req.reps,
+                req.sets,
+                req.weight,
             ).await;
             Ok(serde_json::to_value(response)?)
         }
         ("DELETE", "/sets") => {
-            let workout_id = body.workout_id.unwrap_or_else(|| "".to_string());
-            let timestamp = body.timestamp.unwrap_or(0);
-            let response = sets::delete_set(&dynamodb_client, &sets_table_name, workout_id, timestamp).await;
+            // Parse delete set request
+            let req: DeleteSetRequest = match serde_json::from_str(raw_body) {
+                Ok(r) => r,
+                Err(e) => {
+                    warn!("Invalid DeleteSetRequest: {}", e);
+                    return Ok(serde_json::to_value(
+                        error_response(400, format!("Invalid request: {}", e))
+                    )?);
+                }
+            };
+            let response = sets::delete_set(
+                &dynamodb_client,
+                &sets_table_name,
+                req.workout_id,
+                req.timestamp,
+            ).await;
             Ok(serde_json::to_value(response)?)
         }
 
         // Weight endpoints 
         ("POST", "/weight") => {
-            let response = weight::log_weight(&dynamodb_client, &weight_table_name, body.weight.unwrap()).await;
+            // Parse log weight request
+            let req: LogWeightRequest = match serde_json::from_str(raw_body) {
+                Ok(r) => r,
+                Err(e) => {
+                    warn!("Invalid LogWeightRequest: {}", e);
+                    return Ok(serde_json::to_value(
+                        error_response(400, format!("Invalid request: {}", e))
+                    )?);
+                }
+            };
+            let response = weight::log_weight(
+                &dynamodb_client,
+                &weight_table_name,
+                req.weight,
+            ).await;
             Ok(serde_json::to_value(response)?)
         }
         ("GET", "/weight") => {

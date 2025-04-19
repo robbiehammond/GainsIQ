@@ -4,6 +4,7 @@ use lambda_runtime::{service_fn, Error};
 pub mod exercises;
 pub mod utils;
 pub mod sets;
+pub mod requests;
 pub mod handler;
 pub mod weight;
 
