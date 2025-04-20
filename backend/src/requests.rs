@@ -17,7 +17,8 @@ pub struct LogSetRequest {
     pub reps: String,
     pub sets: i32,
     pub weight: f32,
-    pub weight_modulation: Option<WeightModulation>,
+    #[serde(rename = "isCutting")]
+    pub is_cutting: Option<bool>,         
 }
 
 #[derive(Deserialize, Debug)]
