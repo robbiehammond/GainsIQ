@@ -58,7 +58,7 @@ pub async fn handler(event: LambdaEvent<Value>) -> Result<Value, Error> {
             let req: AddExerciseRequest = match serde_json::from_str(raw_body) {
                 Ok(r) => r,
                 Err(e) => {
-                    warn!("Invalid AddExerciseRequest: {}", e);
+                    println!("Invalid AddExerciseRequest: {}", e);
                     return Ok(serde_json::to_value(
                         error_response(400, format!("Invalid request: {}", e))
                     )?);
@@ -76,7 +76,7 @@ pub async fn handler(event: LambdaEvent<Value>) -> Result<Value, Error> {
             let req: DeleteExerciseRequest = match serde_json::from_str(raw_body) {
                 Ok(r) => r,
                 Err(e) => {
-                    warn!("Invalid DeleteExerciseRequest: {}", e);
+                    println!("Invalid DeleteExerciseRequest: {}", e);
                     return Ok(serde_json::to_value(
                         error_response(400, format!("Invalid request: {}", e))
                     )?);
@@ -96,11 +96,16 @@ pub async fn handler(event: LambdaEvent<Value>) -> Result<Value, Error> {
             let req: LogSetRequest = match serde_json::from_str(raw_body) {
                 Ok(r) => r,
                 Err(e) => {
-                    warn!("Invalid LogSetRequest: {}", e);
+                    println!("Invalid LogSetRequest: {}", e);
                     return Ok(serde_json::to_value(
                         error_response(400, format!("Invalid request: {}", e))
                     )?);
                 }
+            };
+            let modulation = match req.is_cutting {
+                Some(true)  => Cutting,
+                Some(false) => Bulking,
+                None        => Bulking,   
             };
             let response = sets::log_set(
                 &dynamodb_client,
@@ -109,7 +114,7 @@ pub async fn handler(event: LambdaEvent<Value>) -> Result<Value, Error> {
                 req.reps,
                 req.sets,
                 req.weight,
-                req.weight_modulation.unwrap_or(Bulking),
+                modulation
             ).await;
             Ok(serde_json::to_value(response)?)
         }
@@ -148,7 +153,7 @@ pub async fn handler(event: LambdaEvent<Value>) -> Result<Value, Error> {
             let req: EditSetRequest = match serde_json::from_str(raw_body) {
                 Ok(r) => r,
                 Err(e) => {
-                    warn!("Invalid EditSetRequest: {}", e);
+                    println!("Invalid EditSetRequest: {}", e);
                     return Ok(serde_json::to_value(
                         error_response(400, format!("Invalid request: {}", e))
                     )?);
@@ -170,7 +175,7 @@ pub async fn handler(event: LambdaEvent<Value>) -> Result<Value, Error> {
             let req: DeleteSetRequest = match serde_json::from_str(raw_body) {
                 Ok(r) => r,
                 Err(e) => {
-                    warn!("Invalid DeleteSetRequest: {}", e);
+                    println!("Invalid DeleteSetRequest: {}", e);
                     return Ok(serde_json::to_value(
                         error_response(400, format!("Invalid request: {}", e))
                     )?);
@@ -191,7 +196,7 @@ pub async fn handler(event: LambdaEvent<Value>) -> Result<Value, Error> {
             let req: LogWeightRequest = match serde_json::from_str(raw_body) {
                 Ok(r) => r,
                 Err(e) => {
-                    warn!("Invalid LogWeightRequest: {}", e);
+                    println!("Invalid LogWeightRequest: {}", e);
                     return Ok(serde_json::to_value(
                         error_response(400, format!("Invalid request: {}", e))
                     )?);
