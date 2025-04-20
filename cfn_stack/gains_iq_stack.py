@@ -1,4 +1,5 @@
 from aws_cdk import (
+    BundlingOptions,
     Stack,
     aws_s3 as s3,
     aws_lambda as _lambda,
@@ -145,9 +146,9 @@ class GainsIQStack(Stack):
             )
         )
         
-        backend_lambda = _lambda.Function(self, f"GainsIQRustBackendHandler{suffix}",
-                                               runtime=_lambda.Runtime.PROVIDED_AL2023,  
-                                               handler="bootstrap", 
+        rust_backend_lambda = _lambda.Function(self, f"GainsIQRustBackendHandler{suffix}",
+                                               runtime=_lambda.Runtime.PROVIDED_AL2023,
+                                               handler="bootstrap",
                                                architecture=_lambda.Architecture.ARM_64,
                                                code=_lambda.Code.from_asset("./backend/target/lambda/backend_rs"),
                                                role=lambda_role,
@@ -158,9 +159,28 @@ class GainsIQStack(Stack):
                                                    'SETS_TABLE': sets_table.table_name,
                                                    'WEIGHT_TABLE': weight_table.table_name,
                                                    'QUEUE_URL': processing_lambda_trigger_queue.queue_url,
-                                                   'API_KEY_MAP': api_keys_json  
-
+                                                   'API_KEY_MAP': api_keys_json
                                                })
+
+        # In preprod, deploy and use the Go-based backend; otherwise use Rust backend
+        if is_preprod:
+            go_backend_lambda = _lambda.Function(self, f"GainsIQGoBackendHandler{suffix}",
+                                                  runtime=_lambda.Runtime.PROVIDED_AL2023,
+                                                  handler="main",
+                                                  code=_lambda.Code.from_asset("./backend/go"),
+                                                  role=lambda_role,
+                                                  timeout=Duration.minutes(5),
+                                                  environment={
+                                                      'ANALYSES_TABLE': analyses_table.table_name,
+                                                      'EXERCISES_TABLE': exercises_table.table_name,
+                                                      'SETS_TABLE': sets_table.table_name,
+                                                      'WEIGHT_TABLE': weight_table.table_name,
+                                                      'QUEUE_URL': processing_lambda_trigger_queue.queue_url,
+                                                      'API_KEY_MAP': api_keys_json
+                                                  })
+            backend_lambda = go_backend_lambda
+        else:
+            backend_lambda = rust_backend_lambda
         
         log_group = logs.LogGroup(self, f"GainsIQApiLogs{suffix}",
                               retention=logs.RetentionDays.ONE_WEEK)
