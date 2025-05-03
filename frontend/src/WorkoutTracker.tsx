@@ -3,6 +3,7 @@ import {
   Container,
   Grid,
   TextField,
+  Autocomplete,
   MenuItem,
   Button,
   Snackbar,
@@ -36,7 +37,7 @@ const WorkoutTracker: React.FC = () => {
   );
 
   const [exercises, setExercises] = React.useState<string[]>([]);
-  const [searchTerm, setSearchTerm] = React.useState<string>('');
+  const [inputValue, setInputValue] = React.useState<string>('');
   const [newExercise, setNewExercise] = React.useState<string>('');
   const [confirmationMessage, setConfirmationMessage] = React.useState<string>('');
   const [snackbarOpen, setSnackbarOpen] = React.useState<boolean>(false);
@@ -55,9 +56,6 @@ const WorkoutTracker: React.FC = () => {
     fetchExercises();
   }, []);
 
-  const filteredExercises = exercises.filter((exercise) =>
-    exercise.toLowerCase().includes(searchTerm.toLowerCase())
-  );
 
   const convertToPounds = (weight: number, unit: 'lbs' | 'kg'): number => {
     return unit === 'kg' ? weight * 2.20462 : weight;
@@ -159,37 +157,28 @@ const WorkoutTracker: React.FC = () => {
           <form onSubmit={handleSubmit}>
             <Grid container spacing={3}>
               <Grid item xs={12}>
-                <TextField
-                  fullWidth
-                  label="Search Exercise"
-                  variant="outlined"
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
+                <Autocomplete
+                  freeSolo
+                  options={exercises}
+                  inputValue={inputValue}
+                  onInputChange={(e, newInput) => setInputValue(newInput)}
+                  value={selectedExercise}
+                  onChange={(e, newValue) => {
+                    const value = (newValue as string) || '';
+                    dispatch(updateWorkoutForm({ selectedExercise: value }));
+                    setInputValue(value);
+                  }}
+                  renderInput={(params) => (
+                    <TextField
+                      {...params}
+                      label="Exercise"
+                      variant="outlined"
+                      required
+                      fullWidth
+                    />
+                  )}
                 />
               </Grid>
-
-              <Grid item xs={12}>
-                <FormControl fullWidth required>
-                  <InputLabel>Select Exercise</InputLabel>
-                  <Select
-                    value={selectedExercise}
-                    onChange={handleSelectExerciseChange}
-                    label="Select Exercise"
-                  >
-                    <MenuItem value="">-- Select an Exercise --</MenuItem>
-                    {filteredExercises.length > 0 ? (
-                      filteredExercises.map((exercise, index) => (
-                        <MenuItem key={index} value={exercise}>
-                          {exercise}
-                        </MenuItem>
-                      ))
-                    ) : (
-                      <MenuItem disabled>No exercises found</MenuItem>
-                    )}
-                  </Select>
-                </FormControl>
-              </Grid>
-
               <Grid item xs={12} sm={6}>
                 <FormControl fullWidth required>
                   <InputLabel>Reps</InputLabel>
