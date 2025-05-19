@@ -185,12 +185,12 @@ const WorkoutTracker: React.FC = () => {
                   <Select value={reps} onChange={handleRepsChange} label="Reps">
                     <MenuItem value="">-- Select Reps --</MenuItem>
                     <MenuItem value="5 or below">5 or below</MenuItem>
-                    {[...Array(10).keys()].map((n) => (
+                    {[...Array(19).keys()].map((n) => (
                       <MenuItem key={n} value={(n + 6).toString()}>
                         {n + 6}
                       </MenuItem>
                     ))}
-                    <MenuItem value="16 or above">16 or above</MenuItem>
+                    <MenuItem value="25 or more">25 or more</MenuItem>
                   </Select>
                 </FormControl>
               </Grid>
