@@ -28,13 +28,19 @@ class GainsIQStack(Stack):
             config = json.load(config_file)
             email = config.get('email')
             openai_key = config.get('openai_key')
+            oura_api_key = config.get('oura_key')
             api_keys = config.get('api_keys', {})
+
         
         if not email:
             raise ValueError("email not set in config file")
         
         if not openai_key:
             raise ValueError("openai_key not set in config file.")
+        
+        if not oura_api_key:
+            raise ValueError("oura_key not set in config file.")
+
         
         # Convert the API keys map to a JSON string
         api_keys_json = json.dumps(api_keys)
