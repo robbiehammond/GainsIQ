@@ -92,6 +92,17 @@ export class GainsIQClient {
     }).toString();
     return this.request<WorkoutSet[]>(`/sets/by_exercise?${queryParams}`, { method: "GET" });
   }
+  
+  /**
+   * Fetch all workout sets between start and end timestamps (inclusive).
+   */
+  async getSets(params: { start: number; end: number }): Promise<WorkoutSet[]> {
+    const queryParams = new URLSearchParams({
+      start: params.start.toString(),
+      end: params.end.toString(),
+    }).toString();
+    return this.request<WorkoutSet[]>(`/sets?${queryParams}`, { method: "GET" });
+  }
 
   // === Weight endpoints ===
   async getWeights(): Promise<{ weight: number; timestamp: string }[]> {

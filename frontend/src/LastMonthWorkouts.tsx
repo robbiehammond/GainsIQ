@@ -11,7 +11,11 @@ import {
   TextField,
   Button,
   ThemeProvider,
+  Box,
 } from '@mui/material';
+import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
+import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
+import { StaticDatePicker } from '@mui/x-date-pickers/StaticDatePicker';
 import ExpandIcon from '@mui/icons-material/Expand';
 import { groupBy } from 'lodash'; 
 import { theme } from './style/theme';
@@ -20,6 +24,7 @@ import { apiUrl, client } from './utils/ApiUtils';
 import DeleteIcon from '@mui/icons-material/Delete'; 
 import { useSelector } from 'react-redux';
 import { RootState } from './utils/types';
+import dayjs, { Dayjs } from 'dayjs';
 
 /** 
  * storing everything as lbs internally because the backend uses lbs.
@@ -47,6 +52,7 @@ const LastMonthWorkouts: React.FC = () => {
 
   const [sets, setSets] = useState<Set[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
+  const [selectedDate, setSelectedDate] = useState<Dayjs>(dayjs());
 
   const [editingKeys, setEditingKeys] = useState<{workoutId?: string, timestamp?: number}>({});
   const [editingValues, setEditingValues] = useState<Set>({
@@ -60,20 +66,20 @@ const LastMonthWorkouts: React.FC = () => {
 
   useEffect(() => {
     const fetchWorkouts = async () => {
+      setLoading(true);
       try {
-        const data = await client.getLastMonthWorkouts();
-
+        const startTs = Math.floor(selectedDate.startOf('day').valueOf() / 1000);
+        const endTs = Math.floor(selectedDate.endOf('day').valueOf() / 1000);
+        const data = await client.getSets({ start: startTs, end: endTs });
         setSets(data.map(SetUtils.fromBackend) || []);
-        setLoading(false);
       } catch (error) {
-        console.error('Error fetching last month workouts:', error);
+        console.error('Error fetching workouts for date:', error);
         setSets([]);
-        setLoading(false);
       }
+      setLoading(false);
     };
-
     fetchWorkouts();
-  }, []);
+  }, [selectedDate]);
 
   const startEditing = (set: Set) => {
     setEditingKeys({ workoutId: set.workoutId, timestamp: set.timestamp });
@@ -174,8 +180,20 @@ const LastMonthWorkouts: React.FC = () => {
     <ThemeProvider theme={theme}>
       <Container maxWidth="md" sx={{ padding: '40px 20px' }}>
         <Paper elevation={3} sx={{ padding: '20px', backgroundColor: theme.palette.background.default }}>
+          <LocalizationProvider dateAdapter={AdapterDayjs}>
+            <Box sx={{ mb: 2, display: 'flex', alignItems: 'flex-start', justifyContent: 'center', gap: 2, flexWrap: 'wrap' }}>
+              <StaticDatePicker
+                value={selectedDate}
+                onChange={(newValue) => {
+                  if (newValue) {
+                    setSelectedDate(newValue);
+                  }
+                }}
+              />
+            </Box>
+          </LocalizationProvider>
           <Typography variant="h4" align="center" gutterBottom>
-            Last Month's Workouts
+            See Previous Workouts
           </Typography>
 
           {loading ? (

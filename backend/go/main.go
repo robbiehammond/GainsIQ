@@ -501,6 +501,58 @@ func getSetsForExerciseFromDB(exerciseName string, startTs int64, endTs int64) (
 	}
 	return outputItems, nil
 }
+// getSetsInRangeFromDB retrieves all workout sets between startTs and endTs (inclusive)
+func getSetsInRangeFromDB(startTs int64, endTs int64) ([]SetOutputItem, error) {
+   filterExpression := "#ts BETWEEN :start_ts AND :end_ts"
+   exprAttrNames := map[string]string{
+       "#ts": "timestamp",
+   }
+   exprAttrValuesMap := map[string]interface{}{
+       ":start_ts": startTs,
+       ":end_ts":   endTs,
+   }
+   marshaledVals, err := attributevalue.MarshalMap(exprAttrValuesMap)
+   if err != nil {
+       return nil, fmt.Errorf("failed to marshal expression attribute values for getSetsInRange: %w", err)
+   }
+   scanInput := &dynamodb.ScanInput{
+       TableName:                 aws.String(setsTableName),
+       FilterExpression:          aws.String(filterExpression),
+       ExpressionAttributeNames:  exprAttrNames,
+       ExpressionAttributeValues: marshaledVals,
+   }
+   result, err := ddbClient.Scan(context.TODO(), scanInput)
+   if err != nil {
+       return nil, fmt.Errorf("failed to scan sets for range (%d to %d): %w", startTs, endTs, err)
+   }
+   var setItemList []SetItem
+   for _, itemMap := range result.Items {
+       var si SetItem
+       if unmarshalErr := attributevalue.UnmarshalMap(itemMap, &si); unmarshalErr != nil {
+           log.Printf("Warning: failed to unmarshal set item in range: %v. Item: %v", unmarshalErr, itemMap)
+           continue
+       }
+       setItemList = append(setItemList, si)
+   }
+   sort.SliceStable(setItemList, func(i, j int) bool {
+       return setItemList[i].Timestamp < setItemList[j].Timestamp
+   })
+   var outputItems []SetOutputItem
+   for _, si := range setItemList {
+       out := make(SetOutputItem)
+       out["workoutId"] = si.WorkoutID
+       out["timestamp"] = strconv.FormatInt(si.Timestamp, 10)
+       out["exercise"] = si.Exercise
+       out["reps"] = si.Reps
+       out["sets"] = strconv.FormatInt(int64(si.Sets), 10)
+       out["weight"] = strconv.FormatFloat(float64(si.Weight), 'f', -1, 32)
+       if si.WeightModulation != "" {
+           out["weight_modulation"] = si.WeightModulation
+       }
+       outputItems = append(outputItems, out)
+   }
+   return outputItems, nil
+}
 
 func editSetInDB(req EditSetRequest) error {
 	key := map[string]types.AttributeValue{
@@ -701,6 +753,30 @@ func handler(ctx context.Context, req events.APIGatewayProxyRequest) (events.API
 		}
 		return respond(200, map[string]string{"message": "Successfully deleted last set"})
 
+	// GET arbitrary sets in a date/time range
+	case method == "GET" && path == "/sets":
+		qp := req.QueryStringParameters
+		startStr := qp["start"]
+		if startStr == "" {
+			startStr = "0"
+		}
+		endStr := qp["end"]
+		if endStr == "" {
+			endStr = "9999999999999"
+		}
+		startTs, errStart := strconv.ParseInt(startStr, 10, 64)
+		endTs, errEnd := strconv.ParseInt(endStr, 10, 64)
+		if errStart != nil || errEnd != nil {
+			return respond(400, map[string]string{"error": "Invalid start or end timestamp format"})
+		}
+		setsList, err := getSetsInRangeFromDB(startTs, endTs)
+		if err != nil {
+			log.Printf("Error getting sets in range %d to %d: %v", startTs, endTs, err)
+			return respond(500, map[string]string{"error": fmt.Sprintf("Error fetching sets: %v", err)})
+		}
+		return respond(200, setsList)
+
+	// GET sets for a specific exercise in a date/time range
 	case method == "GET" && path == "/sets/by_exercise":
 		qp := req.QueryStringParameters
 		exerciseName := qp["exerciseName"]
