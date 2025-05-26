@@ -3,9 +3,6 @@ import {
   Container,
   Typography,
   Paper,
-  Accordion,
-  AccordionSummary,
-  AccordionDetails,
   CircularProgress,
   Grid,
   TextField,
@@ -16,8 +13,7 @@ import {
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
 import { StaticDatePicker } from '@mui/x-date-pickers/StaticDatePicker';
-import ExpandIcon from '@mui/icons-material/Expand';
-import { groupBy } from 'lodash'; 
+// Removed Accordion and grouping components for direct list display
 import { theme } from './style/theme';
 import { Set, SetUtils } from './models/Set';
 import { apiUrl, client } from './utils/ApiUtils';
@@ -158,20 +154,6 @@ const LastMonthWorkouts: React.FC = () => {
     }
   };
 
-  const groupWorkoutsByDate = (sets: Set[]) => {
-    return groupBy(sets, (set) =>
-      new Date((set.timestamp || 0) * 1000).toLocaleDateString()
-    );
-  };
-
-  const groupedSets = groupWorkoutsByDate(sets);
-
-  const sortedDates = Object.keys(groupedSets).sort((a, b) => {
-      const dateA = new Date(a).getTime();
-      const dateB = new Date(b).getTime();
-      return dateB - dateA; 
-    }
-  );
 
   const isEditing = (set: Set) =>
     editingKeys.workoutId === set.workoutId && editingKeys.timestamp === set.timestamp;
@@ -202,101 +184,83 @@ const LastMonthWorkouts: React.FC = () => {
             </Grid>
           ) : (
             <>
-              {sortedDates.length > 0 ? (
-                sortedDates.map((date, index) => (
-                  <Accordion key={index}>
-                    <AccordionSummary expandIcon={<ExpandIcon />}>
-                      <Typography>{date}</Typography>
-                    </AccordionSummary>
-                    <AccordionDetails>
-                      {groupedSets[date].map((setItem, setIndex) => {
-                        if (isEditing(setItem)) {
-                          return (
-                            <Paper
-                              key={setIndex}
-                              elevation={1}
-                              sx={{
-                                padding: '10px',
-                                marginBottom: '10px',
-                                transition: 'box-shadow 0.3s',
-                                '&:hover': { boxShadow: 6 },
-                              }}
-                            >
-                              <Typography variant="h6">{setItem.exercise}</Typography>
-                              <TextField
-                                label="Reps"
-                                value={editingValues.reps}
-                                onChange={(e) => handleChange('reps', e.target.value)}
-                                fullWidth
-                                sx={{ marginBottom: '10px' }}
-                              />
-                              <TextField
-                                label="Set Number"
-                                type="number"
-                                value={editingValues.setNumber}
-                                onChange={(e) => handleChange('setNumber', Number(e.target.value))}
-                                fullWidth
-                                sx={{ marginBottom: '10px' }}
-                              />
-                              <TextField
-                                label={"Weight " + unit}
-                                type="number"
-                                value={toDisplayWeight(editingValues.weight, unit)}
-                                onChange={(e) =>
-                                  handleChange('weight', toLbsFromDisplay(e.target.value, unit))
-                                }
-                                fullWidth
-                                sx={{ marginBottom: '10px' }}
-                              />
-                              <Button variant="contained" color="primary" onClick={saveEdits} sx={{ marginRight: '10px' }}>
-                                Save
-                              </Button>
-                              <Button variant="outlined" onClick={cancelEditing}>
-                                Cancel
-                              </Button>
-                            </Paper>
-                          );
-                        } else {
-                          return (
-                            <Paper
-                              key={setIndex}
-                              elevation={1}
-                              sx={{
-                                padding: '10px',
-                                marginBottom: '10px',
-                                transition: 'box-shadow 0.3s',
-                                '&:hover': { boxShadow: 6 },
-                              }}
-                            >
-                              <Typography variant="h6">{setItem.exercise}</Typography>
-                              <Typography>
-                                Set #: {setItem.setNumber}, Reps: {setItem.reps}, 
-                                Weight: {toDisplayWeight(setItem.weight, unit)} {unit}
-                              </Typography>
-                              <Typography>
-                                Time: {new Date((setItem.timestamp || 0) * 1000).toLocaleString()}
-                              </Typography>
-                              <Typography>
-                                Bulking or Cutting?: {setItem.weight_modulation ?? "Bulking"}
-                              </Typography>
-                              <Button variant="text" onClick={() => startEditing(setItem)}>
-                                Edit
-                              </Button>
-                              <Button
-                                variant="text"
-                                color="error"
-                                onClick={() => deleteSet(setItem)}
-                                startIcon={<DeleteIcon />}
-                              >
-                                Delete
-                              </Button>
-                            </Paper>
-                          );
-                        }
-                      })}
-                    </AccordionDetails>
-                  </Accordion>
-                ))
+              {sets.length > 0 ? (
+                sets.map((setItem, idx) => {
+                  if (isEditing(setItem)) {
+                    return (
+                      <Paper
+                        key={idx}
+                        elevation={1}
+                        sx={{
+                          padding: '10px',
+                          marginBottom: '10px',
+                          transition: 'box-shadow 0.3s',
+                          '&:hover': { boxShadow: 6 },
+                        }}
+                      >
+                        <Typography variant="h6">{setItem.exercise}</Typography>
+                        <TextField
+                          label="Reps"
+                          value={editingValues.reps}
+                          onChange={(e) => handleChange('reps', e.target.value)}
+                          fullWidth
+                          sx={{ marginBottom: '10px' }}
+                        />
+                        <TextField
+                          label="Set Number"
+                          type="number"
+                          value={editingValues.setNumber}
+                          onChange={(e) => handleChange('setNumber', Number(e.target.value))}
+                          fullWidth
+                          sx={{ marginBottom: '10px' }}
+                        />
+                        <TextField
+                          label={"Weight " + unit}
+                          type="number"
+                          value={toDisplayWeight(editingValues.weight, unit)}
+                          onChange={(e) => handleChange('weight', toLbsFromDisplay(e.target.value, unit))}
+                          fullWidth
+                          sx={{ marginBottom: '10px' }}
+                        />
+                        <Button variant="contained" color="primary" onClick={saveEdits} sx={{ marginRight: '10px' }}>
+                          Save
+                        </Button>
+                        <Button variant="outlined" onClick={cancelEditing}>
+                          Cancel
+                        </Button>
+                      </Paper>
+                    );
+                  }
+                  return (
+                    <Paper
+                      key={idx}
+                      elevation={1}
+                      sx={{
+                        padding: '10px',
+                        marginBottom: '10px',
+                        transition: 'box-shadow 0.3s',
+                        '&:hover': { boxShadow: 6 },
+                      }}
+                    >
+                      <Typography variant="h6">{setItem.exercise}</Typography>
+                      <Typography>
+                        Set #: {setItem.setNumber}, Reps: {setItem.reps}, Weight: {toDisplayWeight(setItem.weight, unit)} {unit}
+                      </Typography>
+                      <Typography>
+                        Time: {new Date((setItem.timestamp || 0) * 1000).toLocaleString()}
+                      </Typography>
+                      <Typography>
+                        Bulking or Cutting?: {setItem.weight_modulation ?? "Bulking"}
+                      </Typography>
+                      <Button variant="text" onClick={() => startEditing(setItem)}>
+                        Edit
+                      </Button>
+                      <Button variant="text" color="error" onClick={() => deleteSet(setItem)} startIcon={<DeleteIcon />}>
+                        Delete
+                      </Button>
+                    </Paper>
+                  );
+                })
               ) : (
                 <Typography variant="h6" align="center">
                   No workouts found.
