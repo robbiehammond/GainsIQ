@@ -32,7 +32,7 @@ import {
   ResponsiveContainer,
   LineChart,
 } from 'recharts';
-import { WorkoutSet } from 'gainsiq-sdk';
+import { WorkoutSet } from './api/types';
 
 const ExerciseProgressPage: React.FC = () => {
   const [exercises, setExercises] = useState<string[]>([]);

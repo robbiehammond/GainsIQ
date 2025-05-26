@@ -3,12 +3,6 @@
 ## What is this?
 A simple web-based workout tracker. You can instantly generate an analysis of your workouts with integrated LLM support.
 
-## Dependencies 
-Your system needs to be able to build Rust, TypeScript, and Python code. Most dependencies will be acquired automatically when building with cargo/npm, but you'll have to manually get the following first:
-- An AWS account where you have access to very permissive roles.
-- [Cargo Lambda](https://www.cargo-lambda.info/). Need this to build and deploy the backend.
-- An OpenAPI account. You'll need an API key to actually be able to get workout summaries.  
-
 ## Deploying 
 Before you can do `cdk deploy`, you must do a few things:
  - Install aforementend dependencies, and also the python dependencies (in requirements.txt). I'd recommend using a virtual environement for all this.
@@ -17,9 +11,10 @@ Before you can do `cdk deploy`, you must do a few things:
 {
     "email": "YOUR EMAIL",
     "openai_key": "YOUR OPENAI API KEY"
+    "oura_key": "YOUR OURA PERSONAL ACCESS TOKEN HERE" <-- Unused for now, will change
 }
 ```
-- Next, build the backend. `cargo lambda build --release --arm64` will do this for you.
+- Next, build the backend. `GOOS=linux GOARCH=amd64 go build -ldflags="-s -w" -o bootstrap main.go` will do this for you.
 - Next, build the frontend. This can be done via `npm run build`. 
 
 After this, you can deploy. Note that the site won't be connected to your backend yet. This is because you'll need the API URL (you can get this from API Gateway) for the frontend. Create a .env file in the frontend directory like the following:
@@ -31,7 +26,7 @@ Rebuild the frontend again and then deploy.
 Note there's a script `build_and_deploy_prod.sh` that will do most of this for you. You'll still have to double-deploy; 
 just run the script again after fetching the app url.
 
-Note that there's an SDK to handle API calls to the backend, which can be found here: https://github.com/robbiehammond/gainsiq-sdk.
+Note that there's an SDK to handle API calls to the backend, which can be found here: https://github.com/robbiehammond/gainsiq-sdk <-- deprecated.
 
 ## Design
 Just so I remember vaguely how this works:

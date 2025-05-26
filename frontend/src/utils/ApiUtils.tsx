@@ -1,4 +1,4 @@
-import { GainsIQClient } from "gainsiq-sdk";
+import { GainsIQClient } from "../api/GainsIQClient";
 
 // env is determined by the build. If we do start:preprod or build:preprod, REACT_APP_ENV is defined.
 export const environment = process.env.REACT_APP_ENV || "prod";
