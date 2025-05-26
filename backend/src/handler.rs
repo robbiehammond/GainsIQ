@@ -1,6 +1,6 @@
 use aws_sdk_dynamodb::Client as DDBClient;
 use aws_sdk_sqs::Client as SQSClient;
-use backend_rs::{analysis, api_key_mapper::get_user_for_api_key};
+use backend_rs::{analysis, oura, api_key_mapper::get_user_for_api_key};
 use lambda_runtime::{Error, LambdaEvent};
 use log::warn;
 use serde_json::Value;
@@ -22,6 +22,7 @@ pub async fn handler(event: LambdaEvent<Value>) -> Result<Value, Error> {
     let weight_table_name = env::var("WEIGHT_TABLE").expect("WEIGHT_TABLE not set");
     let analysis_table_name = env::var("ANALYSES_TABLE").expect("ANALYSES_TABLE not set");
     let queue_url = env::var("QUEUE_URL").expect("QUEUE_URL not set.");
+    let oura_token = env::var("OURA_API_KEY").expect("OURA_API_KEY not set");
 
     let api_key = event.payload.get("headers")
         .and_then(|headers| headers.get("x-api-key"))
@@ -223,8 +224,15 @@ pub async fn handler(event: LambdaEvent<Value>) -> Result<Value, Error> {
             let response = analysis::get_most_recent_analysis(&dynamodb_client, &analysis_table_name).await;
             Ok(serde_json::to_value(response)?)
         }
+
         ("POST", "/analysis") => { // Generate a new analysis. Maybe make this it's own endpoint? Idk.
             let response = analysis::ping_processing_lambda(&sqs_client, &queue_url).await;
+            Ok(serde_json::to_value(response)?)
+        }
+
+        // Log a predefined workout to Oura
+        ("POST", "/oura/log") => {
+            let response = oura::log_workout(&oura_token).await;
             Ok(serde_json::to_value(response)?)
         }
 

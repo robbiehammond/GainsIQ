@@ -164,8 +164,8 @@ class GainsIQStack(Stack):
                                                    'SETS_TABLE': sets_table.table_name,
                                                    'WEIGHT_TABLE': weight_table.table_name,
                                                    'QUEUE_URL': processing_lambda_trigger_queue.queue_url,
-                                                   'API_KEY_MAP': api_keys_json  
-
+                                                   'API_KEY_MAP': api_keys_json,
+                                                   'OURA_API_KEY': oura_api_key
                                                })
         
         log_group = logs.LogGroup(self, f"GainsIQApiLogs{suffix}",
@@ -225,6 +225,11 @@ class GainsIQStack(Stack):
         analysis = api.root.add_resource("analysis")
         analysis.add_method("GET", apigateway.LambdaIntegration(backend_lambda, proxy=True))
         analysis.add_method("POST", apigateway.LambdaIntegration(backend_lambda, proxy=True))
+
+        # Endpoint to log a predefined workout to Oura
+        oura = api.root.add_resource("oura")
+        oura_log = oura.add_resource("log")
+        oura_log.add_method("POST", apigateway.LambdaIntegration(backend_lambda, proxy=True))
 
         monthly_rule = events.Rule(self, f"GainsIQMonthlyRule{suffix}",
                                    schedule=events.Schedule.cron(minute="0", hour="0", day="1", month="*", year="*"))
