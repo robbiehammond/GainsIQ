@@ -49,7 +49,7 @@ type EditSetRequest struct {
 }
 
 type DeleteSetRequest struct {
-	WorkoutID string `json:"workout_id"`
+	WorkoutID string `json:"workoutId"`
 	Timestamp int64  `json:"timestamp"`
 }
 
