@@ -197,7 +197,12 @@ const LastMonthWorkouts: React.FC = () => {
                             <Paper
                               key={setIndex}
                               elevation={1}
-                              sx={{ padding: '10px', marginBottom: '10px' }}
+                              sx={{
+                                padding: '10px',
+                                marginBottom: '10px',
+                                transition: 'box-shadow 0.3s',
+                                '&:hover': { boxShadow: 6 },
+                              }}
                             >
                               <Typography variant="h6">{setItem.exercise}</Typography>
                               <TextField
@@ -238,7 +243,12 @@ const LastMonthWorkouts: React.FC = () => {
                             <Paper
                               key={setIndex}
                               elevation={1}
-                              sx={{ padding: '10px', marginBottom: '10px' }}
+                              sx={{
+                                padding: '10px',
+                                marginBottom: '10px',
+                                transition: 'box-shadow 0.3s',
+                                '&:hover': { boxShadow: 6 },
+                              }}
                             >
                               <Typography variant="h6">{setItem.exercise}</Typography>
                               <Typography>

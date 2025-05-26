@@ -13,6 +13,9 @@ export const theme = createTheme({
       default: teal[50],
     },
   },
+  shape: {
+    borderRadius: 8,
+  },
   typography: {
     h4: {
       fontWeight: 'bold',

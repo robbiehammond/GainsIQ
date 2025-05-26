@@ -306,7 +306,12 @@ const WorkoutTracker: React.FC = () => {
             </Alert>
           </Snackbar>
 
-          <Card sx={{ marginTop: '20px', backgroundColor: amber[50] }}>
+          <Card sx={{
+            marginTop: '20px',
+            backgroundColor: amber[50],
+            transition: 'box-shadow 0.3s',
+            '&:hover': { boxShadow: 6 },
+          }}>
             <CardContent>
               <Typography variant="h5" gutterBottom>
                 Add a New Exercise

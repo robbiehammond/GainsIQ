@@ -204,7 +204,13 @@ const WeightEntry: React.FC = () => {
               <Paper
                 key={index}
                 elevation={1}
-                sx={{ padding: '10px', marginBottom: '10px', backgroundColor: amber[50] }}
+                sx={{
+                  padding: '10px',
+                  marginBottom: '10px',
+                  backgroundColor: amber[50],
+                  transition: 'box-shadow 0.3s',
+                  '&:hover': { boxShadow: 6 },
+                }}
               >
                 <Typography>Weight: {entry.weight} lbs</Typography>
                 <Typography>
