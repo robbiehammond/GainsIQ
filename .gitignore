@@ -11,7 +11,7 @@ cdk.out
 
 backend/target
 backend/Cargo.lock
-
+backend/go/bootstrap
 backend/.DS_Store
 
 .env
