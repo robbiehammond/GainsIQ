@@ -15,7 +15,7 @@ import {
   MenuItem,
   SelectChangeEvent,
 } from '@mui/material';
-import { amber, indigo } from '@mui/material/colors';
+import { grey } from '@mui/material/colors';
 import { theme } from './style/theme';
 import { WeightEntryData } from './models/WeightEntryData';
 import { apiUrl, client } from './utils/ApiUtils';
@@ -187,7 +187,6 @@ const WeightEntry: React.FC = () => {
       });
     }
     
-    console.log('Trendline data points:', trendPoints);
     return trendPoints;
   }, [chartData, weightTrend]);
 
@@ -214,19 +213,23 @@ const WeightEntry: React.FC = () => {
     
     // Convert back to array and sort
     const result = Array.from(dataMap.values()).sort((a, b) => a.time - b.time);
-    console.log('Combined chart data:', result);
     return result;
   }, [chartData, trendlineData]);
 
   return (
     <ThemeProvider theme={theme}>
-      <Container maxWidth="sm" sx={{ padding: '40px 20px' }}>
-        <Paper elevation={3} sx={{ padding: '20px', backgroundColor: theme.palette.background.default }}>
-          <Typography variant="h4" align="center" gutterBottom>
-            Weight Entry
+      <Container maxWidth="md" sx={{ padding: '40px 20px' }}>
+        <Paper elevation={0} sx={{ 
+          padding: '32px', 
+          backgroundColor: '#ffffff',
+          border: `1px solid ${grey[200]}`,
+          borderRadius: 3
+        }}>
+          <Typography variant="h4" align="center" gutterBottom sx={{ mb: 4 }}>
+            Weight Tracker
           </Typography>
 
-          <Grid container spacing={3}>
+          <Grid container spacing={2} sx={{ mb: 3 }}>
             <Grid item xs={12}>
               <TextField
                 fullWidth
@@ -235,41 +238,80 @@ const WeightEntry: React.FC = () => {
                 value={weight}
                 onChange={(e) => setWeight(e.target.value)}
                 required
+                sx={{
+                  '& .MuiOutlinedInput-root': {
+                    backgroundColor: grey[50],
+                    '&:hover .MuiOutlinedInput-notchedOutline': {
+                      borderColor: grey[400],
+                    },
+                  },
+                  '& .MuiInputLabel-root': {
+                    color: grey[600],
+                  }
+                }}
               />
             </Grid>
 
-            <Grid item xs={12}>
+            <Grid item xs={6}>
               <Button
                 variant="contained"
                 color="primary"
                 fullWidth
                 onClick={handleLogWeight}
-                sx={{ backgroundColor: indigo[600], '&:hover': { backgroundColor: indigo[800] } }}
+                sx={{ 
+                  fontWeight: 500,
+                  textTransform: 'none',
+                  boxShadow: 'none',
+                  '&:hover': { 
+                    boxShadow: '0 2px 8px rgba(0,0,0,0.15)' 
+                  }
+                }}
               >
                 Log Weight
               </Button>
             </Grid>
 
-            <Grid item xs={12}>
+            <Grid item xs={6}>
               <Button
-                variant="contained"
+                variant="outlined"
                 color="secondary"
                 fullWidth
                 onClick={handleDeleteMostRecentWeight}
-                sx={{ backgroundColor: amber[600], '&:hover': { backgroundColor: amber[800] } }}
+                sx={{ 
+                  fontWeight: 500,
+                  textTransform: 'none',
+                  borderColor: grey[300],
+                  color: grey[600],
+                  '&:hover': { 
+                    borderColor: grey[400],
+                    backgroundColor: grey[50]
+                  }
+                }}
               >
-                Delete Most Recent Weight
+                Delete Recent
               </Button>
             </Grid>
 
             <Grid item xs={12}>
-              <FormControl fullWidth sx={{ marginTop: '10px' }}>
-                <InputLabel id="time-range-label">Chart Time Range</InputLabel>
+              <FormControl 
+                fullWidth 
+                sx={{ 
+                  mt: 2,
+                  '& .MuiOutlinedInput-root': {
+                    backgroundColor: grey[50],
+                    '&:hover .MuiOutlinedInput-notchedOutline': {
+                      borderColor: grey[400],
+                    },
+                  }
+                }}
+              >
+                <InputLabel id="time-range-label" sx={{ color: grey[600] }}>Chart Time Range</InputLabel>
                 <Select
                   labelId="time-range-label"
                   value={timeRange}
                   label="Chart Time Range"
                   onChange={(e: SelectChangeEvent) => setTimeRange(e.target.value as TimeRange)}
+                  sx={{ color: '#2c2c2c' }}
                 >
                   <MenuItem value="1month">Last Month</MenuItem>
                   <MenuItem value="3months">Last 3 Months</MenuItem>
@@ -294,27 +336,23 @@ const WeightEntry: React.FC = () => {
           {/* Weight Trend Display */}
           {weightTrend && (
             <Paper
-              elevation={2}
+              elevation={0}
               sx={{
-                padding: '15px',
-                marginTop: '20px',
-                backgroundColor: indigo[50],
-                borderLeft: `4px solid ${indigo[600]}`,
+                padding: '20px',
+                marginTop: '24px',
+                backgroundColor: grey[50],
+                border: `1px solid ${grey[200]}`,
+                borderRadius: 2,
               }}
             >
-              <Typography variant="h6" gutterBottom>
+              <Typography variant="body2" color="text.secondary" gutterBottom sx={{ fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
                 Weight Trend (Last 2 Weeks)
               </Typography>
-              <Typography variant="body1">
-                <strong>
-                  {weightTrend.slope >= 0 ? '+' : ''}{(weightTrend.slope * 7).toFixed(2)} pounds/week
-                </strong>
+              <Typography variant="h5" sx={{ color: '#2c2c2c', fontWeight: 600, mb: 1 }}>
+                {weightTrend.slope >= 0 ? '+' : ''}{(weightTrend.slope * 7).toFixed(2)} lbs/week
               </Typography>
-              <Typography variant="body2" color="text.secondary">
-                Based on data from {weightTrend.date}
-              </Typography>
-              <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
-                Trendline extends 1 month into the future
+              <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.85rem' }}>
+                Projection extends 1 month ahead
               </Typography>
             </Paper>
           )}
@@ -324,10 +362,10 @@ const WeightEntry: React.FC = () => {
             Weight Over Time
           </Typography>
           {combinedChartData.length > 0 ? (
-            <div style={{ width: '100%', height: 300 }}>
+            <div style={{ width: '100%', height: 400 }}>
               <ResponsiveContainer>
                 <LineChart data={combinedChartData}>
-                  <CartesianGrid strokeDasharray="3 3" />
+                  <CartesianGrid strokeDasharray="1 1" stroke={grey[300]} strokeOpacity={0.3} />
                   <XAxis
                     dataKey="time"
                     type="number"
@@ -336,9 +374,12 @@ const WeightEntry: React.FC = () => {
                     tickFormatter={(timestamp) =>
                       dayjs(timestamp).format('MMM D')
                     }
+                    axisLine={false}
+                    tickLine={false}
+                    tick={{ fontSize: 12, fill: grey[600] }}
                   />
                   <YAxis
-                    label={{ value: 'lbs', angle: -90, position: 'insideLeft' }}
+                    label={{ value: 'lbs', angle: -90, position: 'insideLeft', style: { textAnchor: 'middle', fill: grey[600] } }}
                     domain={[
                       (dataMin: number) => {
                         const weightValues = chartData.map(d => d.weight);
@@ -349,30 +390,42 @@ const WeightEntry: React.FC = () => {
                         return Math.max(...weightValues) + 5;
                       }
                     ]}
+                    axisLine={false}
+                    tickLine={false}
+                    tick={{ fontSize: 12, fill: grey[600] }}
                   />
                   <Tooltip
                     labelFormatter={(timestamp) =>
                       dayjs(timestamp).format('MMM D, YYYY')
                     }
+                    contentStyle={{
+                      backgroundColor: '#ffffff',
+                      border: `1px solid ${grey[300]}`,
+                      borderRadius: '8px',
+                      boxShadow: '0 4px 12px rgba(0,0,0,0.1)'
+                    }}
                   />
-                  <Legend />
+                  <Legend 
+                    wrapperStyle={{ paddingTop: '20px' }}
+                  />
                   <Line
                     type="monotone"
                     dataKey="weight"
-                    stroke="#8884d8"
-                    activeDot={{ r: 8 }}
+                    stroke="#2c2c2c"
+                    activeDot={{ r: 6, fill: '#2c2c2c', strokeWidth: 0 }}
                     name="Weight (lbs)"
-                    strokeWidth={2}
+                    strokeWidth={2.5}
+                    dot={{ fill: '#2c2c2c', strokeWidth: 0, r: 3 }}
                   />
                   {weightTrend && (
                     <Line
                       type="linear"
                       dataKey="trendline"
-                      stroke="#ff7300"
-                      strokeDasharray="8 4"
-                      name={`Trend Line (${weightTrend.slope >= 0 ? '+' : ''}${(weightTrend.slope * 7).toFixed(2)} lbs/week)`}
+                      stroke="#6c6c6c"
+                      strokeDasharray="6 6"
+                      name={`Trend (${weightTrend.slope >= 0 ? '+' : ''}${(weightTrend.slope * 7).toFixed(2)} lbs/week)`}
                       dot={false}
-                      strokeWidth={3}
+                      strokeWidth={2}
                       connectNulls={false}
                     />
                   )}
@@ -383,31 +436,43 @@ const WeightEntry: React.FC = () => {
             <Typography>No weights logged yet.</Typography>
           )}
 
-          {/* Keep listing the individual entries below, if desired */}
-          <Typography variant="h5" gutterBottom sx={{ marginTop: '20px' }}>
-            Logged Weights
+          {/* Recent Weight Entries */}
+          <Typography variant="h6" sx={{ marginTop: '32px', marginBottom: '16px', color: '#2c2c2c' }}>
+            Recent Entries
           </Typography>
           {weights.length > 0 ? (
-            weights.map((entry, index) => (
-              <Paper
-                key={index}
-                elevation={1}
-                sx={{
-                  padding: '10px',
-                  marginBottom: '10px',
-                  backgroundColor: amber[50],
-                  transition: 'box-shadow 0.3s',
-                  '&:hover': { boxShadow: 6 },
-                }}
-              >
-                <Typography>Weight: {entry.weight} lbs</Typography>
-                <Typography>
-                  Date: {new Date(parseInt(entry.timestamp) * 1000).toLocaleDateString()}
-                </Typography>
-              </Paper>
-            ))
+            <div style={{ maxHeight: '200px', overflowY: 'auto' }}>
+              {weights.slice(-5).reverse().map((entry, index) => (
+                <Paper
+                  key={index}
+                  elevation={0}
+                  sx={{
+                    padding: '12px 16px',
+                    marginBottom: '8px',
+                    backgroundColor: '#ffffff',
+                    border: `1px solid ${grey[200]}`,
+                    borderRadius: 1,
+                    transition: 'border-color 0.2s',
+                    '&:hover': { 
+                      borderColor: grey[300],
+                    },
+                  }}
+                >
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <Typography variant="body1" sx={{ fontWeight: 500, color: '#2c2c2c' }}>
+                      {entry.weight} lbs
+                    </Typography>
+                    <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.85rem' }}>
+                      {new Date(parseInt(entry.timestamp) * 1000).toLocaleDateString()}
+                    </Typography>
+                  </div>
+                </Paper>
+              ))}
+            </div>
           ) : (
-            <Typography>No weights logged yet.</Typography>
+            <Typography color="text.secondary" sx={{ fontStyle: 'italic' }}>
+              No weights logged yet.
+            </Typography>
           )}
         </Paper>
       </Container>

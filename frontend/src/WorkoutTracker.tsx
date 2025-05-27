@@ -17,7 +17,7 @@ import {
   CardContent,
   ThemeProvider,
 } from '@mui/material';
-import { amber, indigo } from '@mui/material/colors';
+import { grey } from '@mui/material/colors';
 import { theme } from './style/theme';
 import { Set } from './models/Set';
 import { environment, client } from './utils/ApiUtils';
@@ -148,14 +148,23 @@ const WorkoutTracker: React.FC = () => {
   return (
     <ThemeProvider theme={theme}>
       <Container maxWidth="md" sx={{ padding: '40px 20px' }}>
-        <Paper elevation={3} sx={{ padding: '20px', backgroundColor: theme.palette.background.default }}>
-          <Typography variant="h4" align="center" gutterBottom>
+        <Paper elevation={0} sx={{ 
+          padding: '32px', 
+          backgroundColor: '#ffffff',
+          border: `1px solid ${grey[200]}`,
+          borderRadius: 3
+        }}>
+          <Typography variant="h4" align="center" gutterBottom sx={{ mb: 4 }}>
             Workout Tracker
-            <div>{environment === 'preprod' ? 'PREPROD - NOT REAL DATA' : ''}</div>
+            {environment === 'preprod' && (
+              <Typography variant="subtitle2" color="text.secondary" sx={{ mt: 1 }}>
+                PREPROD - NOT REAL DATA
+              </Typography>
+            )}
           </Typography>
 
           <form onSubmit={handleSubmit}>
-            <Grid container spacing={3}>
+            <Grid container spacing={2} sx={{ mb: 3 }}>
               <Grid item xs={12}>
                 <Autocomplete
                   freeSolo
@@ -175,12 +184,37 @@ const WorkoutTracker: React.FC = () => {
                       variant="outlined"
                       required
                       fullWidth
+                      sx={{
+                        '& .MuiOutlinedInput-root': {
+                          backgroundColor: grey[50],
+                          '&:hover .MuiOutlinedInput-notchedOutline': {
+                            borderColor: grey[400],
+                          },
+                        },
+                        '& .MuiInputLabel-root': {
+                          color: grey[600],
+                        }
+                      }}
                     />
                   )}
                 />
               </Grid>
               <Grid item xs={12} sm={6}>
-                <FormControl fullWidth required>
+                <FormControl 
+                  fullWidth 
+                  required
+                  sx={{
+                    '& .MuiOutlinedInput-root': {
+                      backgroundColor: grey[50],
+                      '&:hover .MuiOutlinedInput-notchedOutline': {
+                        borderColor: grey[400],
+                      },
+                    },
+                    '& .MuiInputLabel-root': {
+                      color: grey[600],
+                    }
+                  }}
+                >
                   <InputLabel>Reps</InputLabel>
                   <Select value={reps} onChange={handleRepsChange} label="Reps">
                     <MenuItem value="">-- Select Reps --</MenuItem>
@@ -196,7 +230,21 @@ const WorkoutTracker: React.FC = () => {
               </Grid>
 
               <Grid item xs={12} sm={6}>
-                <FormControl fullWidth required>
+                <FormControl 
+                  fullWidth 
+                  required
+                  sx={{
+                    '& .MuiOutlinedInput-root': {
+                      backgroundColor: grey[50],
+                      '&:hover .MuiOutlinedInput-notchedOutline': {
+                        borderColor: grey[400],
+                      },
+                    },
+                    '& .MuiInputLabel-root': {
+                      color: grey[600],
+                    }
+                  }}
+                >
                   <InputLabel>Set Number</InputLabel>
                   <Select value={setNumber} onChange={handleSetNumberChange} label="Sets">
                     <MenuItem value="">-- Select Set Number --</MenuItem>
@@ -217,11 +265,36 @@ const WorkoutTracker: React.FC = () => {
                   value={weight}
                   onChange={handleWeightChange}
                   required
+                  sx={{
+                    '& .MuiOutlinedInput-root': {
+                      backgroundColor: grey[50],
+                      '&:hover .MuiOutlinedInput-notchedOutline': {
+                        borderColor: grey[400],
+                      },
+                    },
+                    '& .MuiInputLabel-root': {
+                      color: grey[600],
+                    }
+                  }}
                 />
               </Grid>
 
               <Grid item xs={12} sm={4}>
-                <FormControl fullWidth required>
+                <FormControl 
+                  fullWidth 
+                  required
+                  sx={{
+                    '& .MuiOutlinedInput-root': {
+                      backgroundColor: grey[50],
+                      '&:hover .MuiOutlinedInput-notchedOutline': {
+                        borderColor: grey[400],
+                      },
+                    },
+                    '& .MuiInputLabel-root': {
+                      color: grey[600],
+                    }
+                  }}
+                >
                   <InputLabel>Unit</InputLabel>
                   <Select
                     value={unit}
@@ -240,7 +313,21 @@ const WorkoutTracker: React.FC = () => {
               </Grid>
 
               <Grid item xs={12} sm={4}>
-                <FormControl fullWidth required>
+                <FormControl 
+                  fullWidth 
+                  required
+                  sx={{
+                    '& .MuiOutlinedInput-root': {
+                      backgroundColor: grey[50],
+                      '&:hover .MuiOutlinedInput-notchedOutline': {
+                        borderColor: grey[400],
+                      },
+                    },
+                    '& .MuiInputLabel-root': {
+                      color: grey[600],
+                    }
+                  }}
+                >
                   <InputLabel>Cutting?</InputLabel>
                   <Select
                     value={weightModulation}
@@ -264,31 +351,57 @@ const WorkoutTracker: React.FC = () => {
                   variant="contained"
                   color="primary"
                   fullWidth
-                  sx={{ backgroundColor: indigo[600], '&:hover': { backgroundColor: indigo[800] } }}
+                  sx={{ 
+                    fontWeight: 500,
+                    textTransform: 'none',
+                    boxShadow: 'none',
+                    mb: 2,
+                    '&:hover': { 
+                      boxShadow: '0 2px 8px rgba(0,0,0,0.15)' 
+                    }
+                  }}
                 >
                   Log Workout
                 </Button>
               </Grid>
 
-              <Grid item xs={12}>
+              <Grid item xs={6}>
                 <Button
-                  variant="contained"
+                  variant="outlined"
                   color="secondary"
                   fullWidth
                   onClick={handlePopLastSet}
-                  sx={{ backgroundColor: amber[600], '&:hover': { backgroundColor: amber[800] } }}
+                  sx={{ 
+                    fontWeight: 500,
+                    textTransform: 'none',
+                    borderColor: grey[300],
+                    color: grey[600],
+                    '&:hover': { 
+                      borderColor: grey[400],
+                      backgroundColor: grey[50]
+                    }
+                  }}
                 >
                   Pop Last Set
                 </Button>
               </Grid>
 
-              <Grid item xs={12}>
+              <Grid item xs={6}>
                 <Button
-                  variant="contained"
+                  variant="outlined"
                   color="secondary"
                   fullWidth
                   onClick={handleGenerateAnalysis}
-                  sx={{ backgroundColor: amber[600], '&:hover': { backgroundColor: amber[800] } }}
+                  sx={{ 
+                    fontWeight: 500,
+                    textTransform: 'none',
+                    borderColor: grey[300],
+                    color: grey[600],
+                    '&:hover': { 
+                      borderColor: grey[400],
+                      backgroundColor: grey[50]
+                    }
+                  }}
                 >
                   Generate Analysis
                 </Button>
@@ -306,14 +419,14 @@ const WorkoutTracker: React.FC = () => {
             </Alert>
           </Snackbar>
 
-          <Card sx={{
-            marginTop: '20px',
-            backgroundColor: amber[50],
-            transition: 'box-shadow 0.3s',
-            '&:hover': { boxShadow: 6 },
+          <Card elevation={0} sx={{
+            marginTop: '24px',
+            backgroundColor: grey[50],
+            border: `1px solid ${grey[200]}`,
+            borderRadius: 2,
           }}>
-            <CardContent>
-              <Typography variant="h5" gutterBottom>
+            <CardContent sx={{ p: 3 }}>
+              <Typography variant="h6" gutterBottom sx={{ color: '#2c2c2c', fontWeight: 500 }}>
                 Add a New Exercise
               </Typography>
               <Grid container spacing={2}>
@@ -323,14 +436,33 @@ const WorkoutTracker: React.FC = () => {
                     label="New Exercise"
                     value={newExercise}
                     onChange={(e) => setNewExercise(e.target.value)}
+                    sx={{
+                      '& .MuiOutlinedInput-root': {
+                        backgroundColor: '#ffffff',
+                        '&:hover .MuiOutlinedInput-notchedOutline': {
+                          borderColor: grey[400],
+                        },
+                      },
+                      '& .MuiInputLabel-root': {
+                        color: grey[600],
+                      }
+                    }}
                   />
                 </Grid>
                 <Grid item xs={4}>
                   <Button
                     variant="contained"
-                    color="secondary"
+                    color="primary"
                     onClick={handleAddExercise}
-                    sx={{ backgroundColor: amber[700], '&:hover': { backgroundColor: amber[900] } }}
+                    sx={{ 
+                      fontWeight: 500,
+                      textTransform: 'none',
+                      boxShadow: 'none',
+                      height: '56px',
+                      '&:hover': { 
+                        boxShadow: '0 2px 8px rgba(0,0,0,0.15)' 
+                      }
+                    }}
                   >
                     Add Exercise
                   </Button>

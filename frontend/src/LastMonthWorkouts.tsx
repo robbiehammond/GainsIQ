@@ -10,6 +10,7 @@ import {
   ThemeProvider,
   Box,
 } from '@mui/material';
+import { grey } from '@mui/material/colors';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
 import { StaticDatePicker } from '@mui/x-date-pickers/StaticDatePicker';
@@ -161,9 +162,18 @@ const LastMonthWorkouts: React.FC = () => {
   return (
     <ThemeProvider theme={theme}>
       <Container maxWidth="md" sx={{ padding: '40px 20px' }}>
-        <Paper elevation={3} sx={{ padding: '20px', backgroundColor: theme.palette.background.default }}>
+        <Paper elevation={0} sx={{ 
+          padding: '32px', 
+          backgroundColor: '#ffffff',
+          border: `1px solid ${grey[200]}`,
+          borderRadius: 3
+        }}>
+          <Typography variant="h4" align="center" gutterBottom sx={{ mb: 4 }}>
+            Previous Workouts
+          </Typography>
+          
           <LocalizationProvider dateAdapter={AdapterDayjs}>
-            <Box sx={{ mb: 2, display: 'flex', alignItems: 'flex-start', justifyContent: 'center', gap: 2, flexWrap: 'wrap' }}>
+            <Box sx={{ mb: 4, display: 'flex', alignItems: 'flex-start', justifyContent: 'center', gap: 2, flexWrap: 'wrap' }}>
               <StaticDatePicker
                 value={selectedDate}
                 onChange={(newValue) => {
@@ -171,12 +181,17 @@ const LastMonthWorkouts: React.FC = () => {
                     setSelectedDate(newValue);
                   }
                 }}
+                sx={{
+                  '& .MuiPickersDay-root': {
+                    color: '#2c2c2c',
+                  },
+                  '& .MuiPickersDay-root.Mui-selected': {
+                    backgroundColor: '#2c2c2c',
+                  }
+                }}
               />
             </Box>
           </LocalizationProvider>
-          <Typography variant="h4" align="center" gutterBottom>
-            See Previous Workouts
-          </Typography>
 
           {loading ? (
             <Grid container justifyContent="center">
@@ -190,21 +205,37 @@ const LastMonthWorkouts: React.FC = () => {
                     return (
                       <Paper
                         key={idx}
-                        elevation={1}
+                        elevation={0}
                         sx={{
-                          padding: '10px',
-                          marginBottom: '10px',
-                          transition: 'box-shadow 0.3s',
-                          '&:hover': { boxShadow: 6 },
+                          padding: '20px',
+                          marginBottom: '12px',
+                          backgroundColor: grey[50],
+                          border: `1px solid ${grey[200]}`,
+                          borderRadius: 2,
+                          transition: 'border-color 0.2s',
+                          '&:hover': { 
+                            borderColor: grey[300],
+                          },
                         }}
                       >
-                        <Typography variant="h6">{setItem.exercise}</Typography>
+                        <Typography variant="h6" sx={{ mb: 2, color: '#2c2c2c' }}>{setItem.exercise}</Typography>
                         <TextField
                           label="Reps"
                           value={editingValues.reps}
                           onChange={(e) => handleChange('reps', e.target.value)}
                           fullWidth
-                          sx={{ marginBottom: '10px' }}
+                          sx={{ 
+                            marginBottom: '12px',
+                            '& .MuiOutlinedInput-root': {
+                              backgroundColor: '#ffffff',
+                              '&:hover .MuiOutlinedInput-notchedOutline': {
+                                borderColor: grey[400],
+                              },
+                            },
+                            '& .MuiInputLabel-root': {
+                              color: grey[600],
+                            }
+                          }}
                         />
                         <TextField
                           label="Set Number"
@@ -212,7 +243,18 @@ const LastMonthWorkouts: React.FC = () => {
                           value={editingValues.setNumber}
                           onChange={(e) => handleChange('setNumber', Number(e.target.value))}
                           fullWidth
-                          sx={{ marginBottom: '10px' }}
+                          sx={{ 
+                            marginBottom: '12px',
+                            '& .MuiOutlinedInput-root': {
+                              backgroundColor: '#ffffff',
+                              '&:hover .MuiOutlinedInput-notchedOutline': {
+                                borderColor: grey[400],
+                              },
+                            },
+                            '& .MuiInputLabel-root': {
+                              color: grey[600],
+                            }
+                          }}
                         />
                         <TextField
                           label={"Weight " + unit}
@@ -220,50 +262,120 @@ const LastMonthWorkouts: React.FC = () => {
                           value={toDisplayWeight(editingValues.weight, unit)}
                           onChange={(e) => handleChange('weight', toLbsFromDisplay(e.target.value, unit))}
                           fullWidth
-                          sx={{ marginBottom: '10px' }}
+                          sx={{ 
+                            marginBottom: '16px',
+                            '& .MuiOutlinedInput-root': {
+                              backgroundColor: '#ffffff',
+                              '&:hover .MuiOutlinedInput-notchedOutline': {
+                                borderColor: grey[400],
+                              },
+                            },
+                            '& .MuiInputLabel-root': {
+                              color: grey[600],
+                            }
+                          }}
                         />
-                        <Button variant="contained" color="primary" onClick={saveEdits} sx={{ marginRight: '10px' }}>
-                          Save
-                        </Button>
-                        <Button variant="outlined" onClick={cancelEditing}>
-                          Cancel
-                        </Button>
+                        <Box sx={{ display: 'flex', gap: 1 }}>
+                          <Button 
+                            variant="contained" 
+                            color="primary" 
+                            onClick={saveEdits}
+                            sx={{ 
+                              fontWeight: 500,
+                              textTransform: 'none',
+                              boxShadow: 'none',
+                              '&:hover': { 
+                                boxShadow: '0 2px 8px rgba(0,0,0,0.15)' 
+                              }
+                            }}
+                          >
+                            Save
+                          </Button>
+                          <Button 
+                            variant="outlined" 
+                            onClick={cancelEditing}
+                            sx={{ 
+                              fontWeight: 500,
+                              textTransform: 'none',
+                              borderColor: grey[300],
+                              color: grey[600],
+                              '&:hover': { 
+                                borderColor: grey[400],
+                                backgroundColor: grey[50]
+                              }
+                            }}
+                          >
+                            Cancel
+                          </Button>
+                        </Box>
                       </Paper>
                     );
                   }
                   return (
                     <Paper
                       key={idx}
-                      elevation={1}
+                      elevation={0}
                       sx={{
-                        padding: '10px',
-                        marginBottom: '10px',
-                        transition: 'box-shadow 0.3s',
-                        '&:hover': { boxShadow: 6 },
+                        padding: '16px',
+                        marginBottom: '8px',
+                        backgroundColor: '#ffffff',
+                        border: `1px solid ${grey[200]}`,
+                        borderRadius: 1,
+                        transition: 'border-color 0.2s',
+                        '&:hover': { 
+                          borderColor: grey[300],
+                        },
                       }}
                     >
-                      <Typography variant="h6">{setItem.exercise}</Typography>
-                      <Typography>
-                        Set #: {setItem.setNumber}, Reps: {setItem.reps}, Weight: {toDisplayWeight(setItem.weight, unit)} {unit}
+                      <Typography variant="h6" sx={{ mb: 1, color: '#2c2c2c', fontWeight: 500 }}>
+                        {setItem.exercise}
                       </Typography>
-                      <Typography>
-                        Time: {new Date((setItem.timestamp || 0) * 1000).toLocaleString()}
+                      <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+                        Set #{setItem.setNumber} • {setItem.reps} reps • {toDisplayWeight(setItem.weight, unit)} {unit}
                       </Typography>
-                      <Typography>
-                        Bulking or Cutting?: {setItem.weight_modulation ?? "Bulking"}
+                      <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+                        {new Date((setItem.timestamp || 0) * 1000).toLocaleString()}
                       </Typography>
-                      <Button variant="text" onClick={() => startEditing(setItem)}>
-                        Edit
-                      </Button>
-                      <Button variant="text" color="error" onClick={() => deleteSet(setItem)} startIcon={<DeleteIcon />}>
-                        Delete
-                      </Button>
+                      <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                        {setItem.weight_modulation ?? "Bulking"}
+                      </Typography>
+                      <Box sx={{ display: 'flex', gap: 1 }}>
+                        <Button 
+                          variant="text" 
+                          onClick={() => startEditing(setItem)}
+                          sx={{ 
+                            fontWeight: 500,
+                            textTransform: 'none',
+                            color: '#2c2c2c',
+                            '&:hover': { 
+                              backgroundColor: grey[50]
+                            }
+                          }}
+                        >
+                          Edit
+                        </Button>
+                        <Button 
+                          variant="text" 
+                          color="error" 
+                          onClick={() => deleteSet(setItem)} 
+                          startIcon={<DeleteIcon />}
+                          sx={{ 
+                            fontWeight: 500,
+                            textTransform: 'none',
+                            '&:hover': { 
+                              backgroundColor: '#ffebee'
+                            }
+                          }}
+                        >
+                          Delete
+                        </Button>
+                      </Box>
                     </Paper>
                   );
                 })
               ) : (
-                <Typography variant="h6" align="center">
-                  No workouts found.
+                <Typography variant="h6" align="center" color="text.secondary" sx={{ fontStyle: 'italic', py: 4 }}>
+                  No workouts found for this date.
                 </Typography>
               )}
             </>

@@ -110,7 +110,7 @@ const App: React.FC = () => {
             </Box>
           </Drawer>
         )}
-        <Container maxWidth="md" sx={{ padding: '40px 20px' }}>
+        <Container maxWidth="lg" sx={{ padding: '40px 20px', backgroundColor: '#fafafa', minHeight: '100vh' }}>
           <Routes>
             <Route path="/" element={<WorkoutTracker />} />
             <Route path="/last-month" element={<LastMonthWorkouts />} />
