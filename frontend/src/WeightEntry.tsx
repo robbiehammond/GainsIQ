@@ -9,6 +9,11 @@ import {
   Snackbar,
   Alert,
   ThemeProvider,
+  FormControl,
+  InputLabel,
+  Select,
+  MenuItem,
+  SelectChangeEvent,
 } from '@mui/material';
 import { amber, indigo } from '@mui/material/colors';
 import { theme } from './style/theme';
@@ -29,12 +34,15 @@ import {
 
 import dayjs from 'dayjs';
 
+type TimeRange = '1month' | '3months' | '6months' | '1year' | 'all';
+
 const WeightEntry: React.FC = () => {
   const [weight, setWeight] = useState<string>('');
   const [weights, setWeights] = useState<WeightEntryData[]>([]);
   const [weightTrend, setWeightTrend] = useState<{ date: string; slope: number } | null>(null);
   const [confirmationMessage, setConfirmationMessage] = useState<string>('');
   const [snackbarOpen, setSnackbarOpen] = useState<boolean>(false);
+  const [timeRange, setTimeRange] = useState<TimeRange>('6months');
 
   useEffect(() => {
     const fetchWeights = async () => {
@@ -116,12 +124,36 @@ const WeightEntry: React.FC = () => {
     (a, b) => parseInt(a.timestamp) - parseInt(b.timestamp)
   );
 
+  // Filter weights based on selected time range
+  const getTimeRangeInMs = (range: TimeRange): number => {
+    const now = Date.now();
+    switch (range) {
+      case '1month':
+        return now - (30 * 24 * 60 * 60 * 1000);
+      case '3months':
+        return now - (90 * 24 * 60 * 60 * 1000);
+      case '6months':
+        return now - (180 * 24 * 60 * 60 * 1000);
+      case '1year':
+        return now - (365 * 24 * 60 * 60 * 1000);
+      case 'all':
+        return 0;
+      default:
+        return now - (180 * 24 * 60 * 60 * 1000); // Default to 6 months
+    }
+  };
+
+  const filteredWeights = sortedWeights.filter(entry => {
+    const entryTime = parseInt(entry.timestamp) * 1000;
+    return entryTime >= getTimeRangeInMs(timeRange);
+  });
+
   /**
    * Prepare the data for Recharts:
    *  - Use "time" as a numeric value for the x-axis.
    *  - Multiply by 1000 because data is in Unix seconds, whereas JS timestamps are milliseconds.
    */
-  const chartData = sortedWeights.map((entry) => ({
+  const chartData = filteredWeights.map((entry) => ({
     time: parseInt(entry.timestamp) * 1000,
     weight: entry.weight,
   }));
@@ -228,6 +260,24 @@ const WeightEntry: React.FC = () => {
               >
                 Delete Most Recent Weight
               </Button>
+            </Grid>
+
+            <Grid item xs={12}>
+              <FormControl fullWidth sx={{ marginTop: '10px' }}>
+                <InputLabel id="time-range-label">Chart Time Range</InputLabel>
+                <Select
+                  labelId="time-range-label"
+                  value={timeRange}
+                  label="Chart Time Range"
+                  onChange={(e: SelectChangeEvent) => setTimeRange(e.target.value as TimeRange)}
+                >
+                  <MenuItem value="1month">Last Month</MenuItem>
+                  <MenuItem value="3months">Last 3 Months</MenuItem>
+                  <MenuItem value="6months">Last 6 Months</MenuItem>
+                  <MenuItem value="1year">Last Year</MenuItem>
+                  <MenuItem value="all">All Time</MenuItem>
+                </Select>
+              </FormControl>
             </Grid>
           </Grid>
 
