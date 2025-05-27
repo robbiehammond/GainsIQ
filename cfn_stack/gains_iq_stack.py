@@ -220,6 +220,8 @@ class GainsIQStack(Stack):
         weight.add_method("POST", apigateway.LambdaIntegration(backend_lambda, proxy=True))
         weight.add_method("GET", apigateway.LambdaIntegration(backend_lambda, proxy=True))
         weight.add_method("DELETE", apigateway.LambdaIntegration(backend_lambda, proxy=True))
+        trend = weight.add_resource("trend")
+        trend.add_method("GET", apigateway.LambdaIntegration(backend_lambda, proxy=True))
 
         analysis = api.root.add_resource("analysis")
         analysis.add_method("GET", apigateway.LambdaIntegration(backend_lambda, proxy=True))

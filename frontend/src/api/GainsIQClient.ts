@@ -120,6 +120,10 @@ export class GainsIQClient {
     return this.request<{ message: string }>("/weight", { method: "DELETE" });
   }
 
+  async getWeightTrend(): Promise<{ date: string; slope: number }> {
+    return this.request<{ date: string; slope: number }>("/weight/trend", { method: "GET" });
+  }
+
   // === Analysis endpoint ===
   async generateAnalysis(): Promise<any> {
     return this.request<any>("/analysis", { method: "POST" });

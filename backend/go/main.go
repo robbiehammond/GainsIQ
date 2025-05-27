@@ -57,6 +57,11 @@ type LogWeightRequest struct {
 	Weight float32 `json:"weight"`
 }
 
+type WeightTrendResponse struct {
+	Date  string  `json:"date"`
+	Slope float64 `json:"slope"`
+}
+
 var (
 	ddbClient          *dynamodb.Client
 	sqsClient          *sqs.Client
@@ -269,6 +274,74 @@ func getWeightsFromDB() ([]WeightOutputItem, error) {
 		outputItems = append(outputItems, out)
 	}
 	return outputItems, nil
+}
+
+func calculateWeightTrend() (WeightTrendResponse, error) {
+	twoWeeksAgo := time.Now().AddDate(0, 0, -14).Unix()
+	
+	scanInput := &dynamodb.ScanInput{
+		TableName:        aws.String(weightTableName),
+		FilterExpression: aws.String("#ts >= :two_weeks_ago"),
+		ExpressionAttributeNames: map[string]string{
+			"#ts": "timestamp",
+		},
+		ExpressionAttributeValues: map[string]types.AttributeValue{
+			":two_weeks_ago": &types.AttributeValueMemberN{Value: strconv.FormatInt(twoWeeksAgo, 10)},
+		},
+	}
+	
+	result, err := ddbClient.Scan(context.TODO(), scanInput)
+	if err != nil {
+		return WeightTrendResponse{}, fmt.Errorf("failed to scan weight table for trend: %w", err)
+	}
+	
+	if len(result.Items) < 2 {
+		return WeightTrendResponse{}, fmt.Errorf("insufficient data points for trend calculation (need at least 2)")
+	}
+	
+	var weightItems []WeightItem
+	for _, itemMap := range result.Items {
+		var wi WeightItem
+		if err = attributevalue.UnmarshalMap(itemMap, &wi); err != nil {
+			log.Printf("Warning: failed to unmarshal weight item during trend calculation: %v", err)
+			continue
+		}
+		weightItems = append(weightItems, wi)
+	}
+	
+	if len(weightItems) < 2 {
+		return WeightTrendResponse{}, fmt.Errorf("insufficient valid data points for trend calculation")
+	}
+	
+	sort.SliceStable(weightItems, func(i, j int) bool {
+		return weightItems[i].Timestamp < weightItems[j].Timestamp
+	})
+	
+	// Calculate linear regression (best fit line)
+	n := float64(len(weightItems))
+	var sumX, sumY, sumXY, sumX2 float64
+	
+	for _, item := range weightItems {
+		x := float64(item.Timestamp)
+		y := float64(item.Weight)
+		sumX += x
+		sumY += y
+		sumXY += x * y
+		sumX2 += x * x
+	}
+	
+	// Slope formula: (n*sumXY - sumX*sumY) / (n*sumX2 - sumX*sumX)
+	slope := (n*sumXY - sumX*sumY) / (n*sumX2 - sumX*sumX)
+	
+	// Convert slope from pounds per second to pounds per day
+	slopePoundsPerDay := slope * 86400 // 86400 seconds in a day
+	
+	currentDate := time.Now().Format("2006-01-02")
+	
+	return WeightTrendResponse{
+		Date:  currentDate,
+		Slope: slopePoundsPerDay,
+	}, nil
 }
 
 func deleteMostRecentWeightFromDB() (deleted bool, err error) {
@@ -868,6 +941,17 @@ func handler(ctx context.Context, req events.APIGatewayProxyRequest) (events.API
 			return respond(404, map[string]string{"error": "No weight found to delete"})
 		}
 		return respond(200, map[string]string{"message": "Most recent weight deleted successfully"})
+
+	case method == "GET" && path == "/weight/trend":
+		trend, err := calculateWeightTrend()
+		if err != nil {
+			log.Printf("Error calculating weight trend: %v", err)
+			if strings.Contains(err.Error(), "insufficient data points") {
+				return respond(400, map[string]string{"error": "Insufficient data points for trend calculation (need at least 2 weights in the last 2 weeks)"})
+			}
+			return respond(500, map[string]string{"error": fmt.Sprintf("Error calculating weight trend: %v", err)})
+		}
+		return respond(200, trend)
 
 	// === Analysis ===
 	case method == "GET" && path == "/analysis":

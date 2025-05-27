@@ -32,6 +32,7 @@ import dayjs from 'dayjs';
 const WeightEntry: React.FC = () => {
   const [weight, setWeight] = useState<string>('');
   const [weights, setWeights] = useState<WeightEntryData[]>([]);
+  const [weightTrend, setWeightTrend] = useState<{ date: string; slope: number } | null>(null);
   const [confirmationMessage, setConfirmationMessage] = useState<string>('');
   const [snackbarOpen, setSnackbarOpen] = useState<boolean>(false);
 
@@ -45,7 +46,18 @@ const WeightEntry: React.FC = () => {
       }
     };
 
+    const fetchWeightTrend = async () => {
+      try {
+        const trend = await client.getWeightTrend();
+        setWeightTrend(trend);
+      } catch (error) {
+        console.error('Error fetching weight trend:', error);
+        setWeightTrend(null);
+      }
+    };
+
     fetchWeights();
+    fetchWeightTrend();
   }, [apiUrl]);
 
   const handleLogWeight = async () => {
@@ -59,6 +71,14 @@ const WeightEntry: React.FC = () => {
 
       const updatedWeights = await client.getWeights();
       setWeights(updatedWeights || []);
+      
+      try {
+        const trend = await client.getWeightTrend();
+        setWeightTrend(trend);
+      } catch (trendError) {
+        console.error('Error fetching updated weight trend:', trendError);
+        setWeightTrend(null);
+      }
     } catch (error) {
       console.error('Error logging weight:', error);
     }
@@ -78,6 +98,14 @@ const WeightEntry: React.FC = () => {
 
       const updatedWeights = await client.getWeights();
       setWeights(updatedWeights || []);
+      
+      try {
+        const trend = await client.getWeightTrend();
+        setWeightTrend(trend);
+      } catch (trendError) {
+        console.error('Error fetching updated weight trend:', trendError);
+        setWeightTrend(null);
+      }
     } catch (error) {
       console.error('Error deleting most recent weight:', error);
     }
@@ -97,6 +125,66 @@ const WeightEntry: React.FC = () => {
     time: parseInt(entry.timestamp) * 1000,
     weight: entry.weight,
   }));
+
+  // Calculate trendline data for the chart
+  const trendlineData = React.useMemo(() => {
+    if (!weightTrend || chartData.length < 2) return [];
+    
+    // Get the most recent weight data point
+    const lastPoint = chartData[chartData.length - 1];
+    
+    // Calculate the slope in pounds per millisecond (weightTrend.slope is pounds per day)
+    const slopePerMs = weightTrend.slope / (24 * 60 * 60 * 1000);
+    
+    // Create trendline from most recent data point to 1 month in the future
+    const trendStart = lastPoint.time; // Start from the most recent data point
+    const oneMonthFromNow = Date.now() + (30 * 24 * 60 * 60 * 1000); // 1 month in the future
+    
+    // Calculate y-intercept using the most recent point
+    const yIntercept = lastPoint.weight - (slopePerMs * lastPoint.time);
+    
+    // Create multiple points for a smooth line (only forward in time)
+    const trendPoints = [];
+    const timeStep = (oneMonthFromNow - trendStart) / 10; // 10 points for smooth line
+    
+    for (let i = 0; i <= 10; i++) {
+      const time = trendStart + (timeStep * i);
+      trendPoints.push({
+        time: time,
+        trendline: yIntercept + (slopePerMs * time),
+      });
+    }
+    
+    console.log('Trendline data points:', trendPoints);
+    return trendPoints;
+  }, [chartData, weightTrend]);
+
+  // Merge chart data with trendline data
+  const combinedChartData = React.useMemo(() => {
+    if (trendlineData.length === 0) return chartData;
+    
+    // Create a map for quick lookup
+    const dataMap = new Map();
+    
+    // Add weight data
+    chartData.forEach(point => {
+      dataMap.set(point.time, { ...point });
+    });
+    
+    // Add trendline data
+    trendlineData.forEach(point => {
+      if (dataMap.has(point.time)) {
+        dataMap.set(point.time, { ...dataMap.get(point.time), trendline: point.trendline });
+      } else {
+        dataMap.set(point.time, point);
+      }
+    });
+    
+    // Convert back to array and sort
+    const result = Array.from(dataMap.values()).sort((a, b) => a.time - b.time);
+    console.log('Combined chart data:', result);
+    return result;
+  }, [chartData, trendlineData]);
 
   return (
     <ThemeProvider theme={theme}>
@@ -153,14 +241,42 @@ const WeightEntry: React.FC = () => {
             </Alert>
           </Snackbar>
 
+          {/* Weight Trend Display */}
+          {weightTrend && (
+            <Paper
+              elevation={2}
+              sx={{
+                padding: '15px',
+                marginTop: '20px',
+                backgroundColor: indigo[50],
+                borderLeft: `4px solid ${indigo[600]}`,
+              }}
+            >
+              <Typography variant="h6" gutterBottom>
+                Weight Trend (Last 2 Weeks)
+              </Typography>
+              <Typography variant="body1">
+                <strong>
+                  {weightTrend.slope >= 0 ? '+' : ''}{(weightTrend.slope * 7).toFixed(2)} pounds/week
+                </strong>
+              </Typography>
+              <Typography variant="body2" color="text.secondary">
+                Based on data from {weightTrend.date}
+              </Typography>
+              <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+                Trendline extends 1 month into the future
+              </Typography>
+            </Paper>
+          )}
+
           {/* Time-based Chart */}
           <Typography variant="h5" gutterBottom sx={{ marginTop: '20px' }}>
             Weight Over Time
           </Typography>
-          {chartData.length > 0 ? (
+          {combinedChartData.length > 0 ? (
             <div style={{ width: '100%', height: 300 }}>
               <ResponsiveContainer>
-                <LineChart data={chartData}>
+                <LineChart data={combinedChartData}>
                   <CartesianGrid strokeDasharray="3 3" />
                   <XAxis
                     dataKey="time"
@@ -173,7 +289,16 @@ const WeightEntry: React.FC = () => {
                   />
                   <YAxis
                     label={{ value: 'lbs', angle: -90, position: 'insideLeft' }}
-                    domain={['dataMin - 5', 'dataMax + 5']}
+                    domain={[
+                      (dataMin: number) => {
+                        const weightValues = chartData.map(d => d.weight);
+                        return Math.min(...weightValues) - 5;
+                      },
+                      (dataMax: number) => {
+                        const weightValues = chartData.map(d => d.weight);
+                        return Math.max(...weightValues) + 5;
+                      }
+                    ]}
                   />
                   <Tooltip
                     labelFormatter={(timestamp) =>
@@ -187,7 +312,20 @@ const WeightEntry: React.FC = () => {
                     stroke="#8884d8"
                     activeDot={{ r: 8 }}
                     name="Weight (lbs)"
+                    strokeWidth={2}
                   />
+                  {weightTrend && (
+                    <Line
+                      type="linear"
+                      dataKey="trendline"
+                      stroke="#ff7300"
+                      strokeDasharray="8 4"
+                      name={`Trend Line (${weightTrend.slope >= 0 ? '+' : ''}${(weightTrend.slope * 7).toFixed(2)} lbs/week)`}
+                      dot={false}
+                      strokeWidth={3}
+                      connectNulls={false}
+                    />
+                  )}
                 </LineChart>
               </ResponsiveContainer>
             </div>
