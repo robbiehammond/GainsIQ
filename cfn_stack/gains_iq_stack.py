@@ -14,7 +14,9 @@ from aws_cdk import (
     aws_sqs as sqs,
     aws_lambda_event_sources as lambda_event_sources,
     Duration,
-    aws_logs as logs
+    aws_logs as logs,
+    aws_cloudfront as cloudfront,
+    aws_cloudfront_origins as origins
 )
 import json
 from constructs import Construct
@@ -52,13 +54,42 @@ class GainsIQStack(Stack):
         suffix = "-preprod" if is_preprod else ""
 
         frontend_bucket = s3.Bucket(self, f"GainsIQFrontend{suffix}",
-                                    website_index_document="index.html",
-                                    public_read_access=True,
-                                    block_public_access=s3.BlockPublicAccess.BLOCK_ACLS)
+                                    public_read_access=False,
+                                    block_public_access=s3.BlockPublicAccess.BLOCK_ALL)
+
+        # Origin Access Identity for CloudFront
+        origin_access_identity = cloudfront.OriginAccessIdentity(self, f"GainsIQOAI{suffix}")
+        frontend_bucket.grant_read(origin_access_identity)
+
+        # CloudFront distribution for HTTPS
+        distribution = cloudfront.Distribution(self, f"GainsIQDistribution{suffix}",
+            default_behavior=cloudfront.BehaviorOptions(
+                origin=origins.S3Origin(frontend_bucket, origin_access_identity=origin_access_identity),
+                viewer_protocol_policy=cloudfront.ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
+                allowed_methods=cloudfront.AllowedMethods.ALLOW_GET_HEAD,
+                cached_methods=cloudfront.CachedMethods.CACHE_GET_HEAD,
+                cache_policy=cloudfront.CachePolicy.CACHING_OPTIMIZED
+            ),
+            default_root_object="index.html",
+            error_responses=[
+                cloudfront.ErrorResponse(
+                    http_status=403,
+                    response_http_status=200,
+                    response_page_path="/index.html"
+                ),
+                cloudfront.ErrorResponse(
+                    http_status=404,
+                    response_http_status=200,
+                    response_page_path="/index.html"
+                )
+            ]
+        )
 
         s3deploy.BucketDeployment(self, f"DeployWebsite{suffix}",
                                   sources=[s3deploy.Source.asset("./frontend/build")],
-                                  destination_bucket=frontend_bucket)
+                                  destination_bucket=frontend_bucket,
+                                  distribution=distribution,
+                                  distribution_paths=["/*"])
 
         exercises_table = dynamodb.Table(self, f"ExercisesTable{suffix}",
                                          partition_key=dynamodb.Attribute(
@@ -200,6 +231,7 @@ class GainsIQStack(Stack):
         exercises = api.root.add_resource("exercises")
         exercises.add_method("POST", apigateway.LambdaIntegration(backend_lambda, proxy=True))
         exercises.add_method("GET", apigateway.LambdaIntegration(backend_lambda, proxy=True))
+        exercises.add_method("PUT", apigateway.LambdaIntegration(backend_lambda, proxy=True))
         exercises.add_method("DELETE", apigateway.LambdaIntegration(backend_lambda, proxy=True))
 
         sets = api.root.add_resource("sets")
@@ -226,6 +258,11 @@ class GainsIQStack(Stack):
         analysis = api.root.add_resource("analysis")
         analysis.add_method("GET", apigateway.LambdaIntegration(backend_lambda, proxy=True))
         analysis.add_method("POST", apigateway.LambdaIntegration(backend_lambda, proxy=True))
+
+        analytics = api.root.add_resource("analytics")
+        volume = analytics.add_resource("volume")
+        bodypart = volume.add_resource("bodypart")
+        bodypart.add_method("GET", apigateway.LambdaIntegration(backend_lambda, proxy=True))
 
         monthly_rule = events.Rule(self, f"GainsIQMonthlyRule{suffix}",
                                    schedule=events.Schedule.cron(minute="0", hour="0", day="1", month="*", year="*"))
