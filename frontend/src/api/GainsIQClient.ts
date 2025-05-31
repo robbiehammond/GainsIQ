@@ -1,5 +1,5 @@
 // GainsIQClient.ts
-import { AddSetRequest, AddSetResponse, WorkoutSet } from "./types";
+import { AddSetRequest, AddSetResponse, WorkoutSet } from "../types/";
 
 export class GainsIQClient {
   private apiUrl: string;

@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
-import { updateWorkoutForm } from './reducers/workoutFormReducer';
+import { updateWorkoutForm } from '../reducers/workoutFormReducer';
 import {
   Container,
   Paper,
@@ -15,8 +15,8 @@ import {
   ThemeProvider,
 } from '@mui/material';
 import { grey } from '@mui/material/colors';
-import { theme } from './style/theme';
-import { client } from './utils/ApiUtils';
+import { theme } from '../style/theme';
+import { client } from '../utils/ApiUtils';
 
 import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
@@ -35,7 +35,7 @@ import {
   ResponsiveContainer,
   LineChart,
 } from 'recharts';
-import { WorkoutSet } from './api/types';
+import { WorkoutSet } from '../types';
 
 const ExerciseProgressPage: React.FC = () => {
   const [exercises, setExercises] = useState<string[]>([]);

@@ -15,12 +15,12 @@ import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
 import { StaticDatePicker } from '@mui/x-date-pickers/StaticDatePicker';
 // Removed Accordion and grouping components for direct list display
-import { theme } from './style/theme';
-import { Set, SetUtils } from './models/Set';
-import { apiUrl, client } from './utils/ApiUtils';
+import { theme } from '../style/theme';
+import { Set, SetUtils } from '../types';
+import { apiUrl, client } from '../utils/ApiUtils';
 import DeleteIcon from '@mui/icons-material/Delete'; 
 import { useSelector } from 'react-redux';
-import { RootState } from './utils/types';
+import { RootState } from '../types/store';
 import dayjs, { Dayjs } from 'dayjs';
 
 /** 

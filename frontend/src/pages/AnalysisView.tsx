@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Container, Typography, Paper } from '@mui/material';
-import { client, } from './utils/ApiUtils';
+import { client } from '../utils/ApiUtils';
 
 const AnalysisView: React.FC = () => {
   const [analysis, setAnalysis] = useState<any>(null);

@@ -18,14 +18,14 @@ import {
   ThemeProvider,
 } from '@mui/material';
 import { grey } from '@mui/material/colors';
-import { theme } from './style/theme';
-import { Set } from './models/Set';
-import { environment, client } from './utils/ApiUtils';
-import { setWeightUnit } from './actions/UnitActions';
+import { theme } from '../style/theme';
+import { Set } from '../types';
+import { environment, client } from '../utils/ApiUtils';
+import { setWeightUnit } from '../actions/UnitActions';
 import { useDispatch, useSelector } from 'react-redux';
-import { RootState } from './utils/types';
-import { updateWorkoutForm } from './reducers/workoutFormReducer';
-import { setCuttingState } from './actions/CuttingActions';
+import { RootState } from '../types/store';
+import { updateWorkoutForm } from '../reducers/workoutFormReducer';
+import { setCuttingState } from '../actions/CuttingActions';
 
 
 const WorkoutTracker: React.FC = () => {

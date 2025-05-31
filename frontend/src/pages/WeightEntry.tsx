@@ -16,9 +16,9 @@ import {
   SelectChangeEvent,
 } from '@mui/material';
 import { grey } from '@mui/material/colors';
-import { theme } from './style/theme';
-import { WeightEntryData } from './models/WeightEntryData';
-import { apiUrl, client } from './utils/ApiUtils';
+import { theme } from '../style/theme';
+import { WeightEntryData } from '../types';
+import { apiUrl, client } from '../utils/ApiUtils';
 
 // Recharts imports
 import {
