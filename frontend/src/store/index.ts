@@ -1,14 +1,15 @@
-import { createStore, combineReducers } from 'redux';
-import weightUnitReducer from '../reducers/UnitReducer';
-import workoutFormReducer from '../reducers/workoutFormReducer';
-import cuttingStateReducer from '../reducers/CuttingReducer';
+import { configureStore } from '@reduxjs/toolkit';
+import { weightUnitSlice, cuttingSlice, workoutFormSlice } from './slices';
 
-const rootReducer = combineReducers({
-  weightUnit: weightUnitReducer,
-  workoutForm: workoutFormReducer,
-  weightModulation: cuttingStateReducer,
+const store = configureStore({
+  reducer: {
+    weightUnit: weightUnitSlice,
+    workoutForm: workoutFormSlice,
+    weightModulation: cuttingSlice,
+  },
 });
 
-const store = createStore(rootReducer);
+export type RootState = ReturnType<typeof store.getState>;
+export type AppDispatch = typeof store.dispatch;
 
 export default store;

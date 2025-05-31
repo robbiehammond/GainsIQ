@@ -21,11 +21,9 @@ import { grey } from '@mui/material/colors';
 import { theme } from '../style/theme';
 import { Set } from '../types';
 import { environment, client } from '../utils/ApiUtils';
-import { setWeightUnit } from '../actions/UnitActions';
 import { useDispatch, useSelector } from 'react-redux';
 import { RootState } from '../types/store';
-import { updateWorkoutForm } from '../reducers/workoutFormReducer';
-import { setCuttingState } from '../actions/CuttingActions';
+import { setWeightUnit, setCuttingState, updateWorkoutForm } from '../store/slices';
 
 
 const WorkoutTracker: React.FC = () => {

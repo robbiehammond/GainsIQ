@@ -1,3 +1,1 @@
-import store from "../store";
-
-export type RootState = ReturnType<typeof store.getState>;
+export type { RootState, AppDispatch } from '../store';
