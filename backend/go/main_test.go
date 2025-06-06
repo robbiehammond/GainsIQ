@@ -170,7 +170,7 @@ func TestCalculateWeightTrendMath(t *testing.T) {
 				{Timestamp: 1000, Weight: 150.0},
 				{Timestamp: 87400, Weight: 150.0},
 			},
-			expected: 0.0, 
+			expected: 0.0,
 		},
 	}
 
@@ -189,7 +189,7 @@ func TestCalculateWeightTrendMath(t *testing.T) {
 			}
 
 			slope := (n*sumXY - sumX*sumY) / (n*sumX2 - sumX*sumX)
-			slopePoundsPerDay := slope * 86400 
+			slopePoundsPerDay := slope * 86400
 
 			// Allow for small floating point differences
 			if abs(slopePoundsPerDay-tc.expected) > 0.001 {
@@ -219,7 +219,7 @@ func TestLogSetRequestStruct(t *testing.T) {
 			expected: LogSetRequest{
 				Exercise:  "bench press",
 				Reps:      "10",
-				Sets:      3,
+				Sets:      intPtr(3),
 				Weight:    185.5,
 				IsCutting: boolPtr(true),
 			},
@@ -231,7 +231,7 @@ func TestLogSetRequestStruct(t *testing.T) {
 			expected: LogSetRequest{
 				Exercise:  "squat",
 				Reps:      "8-10",
-				Sets:      4,
+				Sets:      intPtr(4),
 				Weight:    225.0,
 				IsCutting: boolPtr(false),
 			},
@@ -243,7 +243,19 @@ func TestLogSetRequestStruct(t *testing.T) {
 			expected: LogSetRequest{
 				Exercise:  "deadlift",
 				Reps:      "5",
-				Sets:      1,
+				Sets:      intPtr(1),
+				Weight:    315.0,
+				IsCutting: nil,
+			},
+			shouldError: false,
+		},
+		{
+			name:    "request without sets info",
+			jsonStr: `{"exercise":"deadlift","reps":"5","weight":315.0}`,
+			expected: LogSetRequest{
+				Exercise:  "deadlift",
+				Reps:      "5",
+				Sets:      nil,
 				Weight:    315.0,
 				IsCutting: nil,
 			},
@@ -272,8 +284,11 @@ func TestLogSetRequestStruct(t *testing.T) {
 				if req.Reps != tt.expected.Reps {
 					t.Errorf("Reps = %v, want %v", req.Reps, tt.expected.Reps)
 				}
-				if req.Sets != tt.expected.Sets {
-					t.Errorf("Sets = %v, want %v", req.Sets, tt.expected.Sets)
+				if (req.Sets == nil) != (tt.expected.Sets == nil) {
+					t.Errorf("Sets null mismatch: got %v, want %v", req.IsCutting, tt.expected.IsCutting)
+
+				} else if req.Sets != nil && tt.expected.Sets != nil && *req.Sets != *tt.expected.Sets {
+					t.Errorf("Sets = %v, want %v", *req.Sets, *tt.expected.Sets)
 				}
 				if req.Weight != tt.expected.Weight {
 					t.Errorf("Weight = %v, want %v", req.Weight, tt.expected.Weight)
@@ -557,12 +572,12 @@ func boolPtr(b bool) *bool {
 	return &b
 }
 
-func stringPtr(s string) *string {
-	return &s
-}
-
 func intPtr(i int) *int {
 	return &i
+}
+
+func stringPtr(s string) *string {
+	return &s
 }
 
 func float32Ptr(f float32) *float32 {

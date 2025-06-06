@@ -2,7 +2,7 @@ export interface Set {
     exercise: string;
     weight: number;
     reps: string;
-    setNumber: number;
+    setNumber?: number;
     timestamp?: number;
     workoutId?: string;
     weight_modulation?: string;
@@ -39,7 +39,6 @@ export type CuttingState = 'CUTTING' | 'BULKING';
 export interface WorkoutFormState {
     selectedExercise: string;
     reps: string;
-    setNumber: string;
     weight: string;
 }
 

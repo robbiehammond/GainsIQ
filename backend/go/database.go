@@ -281,6 +281,54 @@ func getLastMonthSetsFromDB() ([]SetOutputItem, error) {
 	return outputItems, nil
 }
 
+func getHighestSetNumberForExerciseInLast12Hours(exerciseName string) (int32, error) {
+	if exerciseName == "" {
+		return 0, fmt.Errorf("exerciseName cannot be empty")
+	}
+
+	twelveHoursAgo := time.Now().Add(-12 * time.Hour).Unix()
+	
+	filterExpression := "#ex = :exercise_val AND #ts > :twelve_hours_ago"
+	exprAttrNames := map[string]string{
+		"#ex": "exercise",
+		"#ts": "timestamp",
+	}
+	exprAttrValuesMap := map[string]interface{}{
+		":exercise_val":     exerciseName,
+		":twelve_hours_ago": twelveHoursAgo,
+	}
+	marshaledExprAttrValues, err := attributevalue.MarshalMap(exprAttrValuesMap)
+	if err != nil {
+		return 0, fmt.Errorf("failed to marshal expression attribute values for getHighestSetNumber: %w", err)
+	}
+
+	scanInput := &dynamodb.ScanInput{
+		TableName:                 aws.String(setsTableName),
+		FilterExpression:          aws.String(filterExpression),
+		ExpressionAttributeNames:  exprAttrNames,
+		ExpressionAttributeValues: marshaledExprAttrValues,
+	}
+
+	result, err := ddbClient.Scan(context.TODO(), scanInput)
+	if err != nil {
+		return 0, fmt.Errorf("failed to scan sets for exercise %s in last 12 hours: %w", exerciseName, err)
+	}
+
+	var highestSetNumber int32 = 0
+	for _, itemMap := range result.Items {
+		var si SetItem
+		if errUnmarshal := attributevalue.UnmarshalMap(itemMap, &si); errUnmarshal != nil {
+			log.Printf("Warning: failed to unmarshal set item for exercise %s: %v", exerciseName, errUnmarshal)
+			continue
+		}
+		if si.Sets > highestSetNumber {
+			highestSetNumber = si.Sets
+		}
+	}
+
+	return highestSetNumber, nil
+}
+
 func logSetToDB(req LogSetRequest) error {
 	var modulation string
 	if req.IsCutting != nil && *req.IsCutting {
@@ -289,12 +337,25 @@ func logSetToDB(req LogSetRequest) error {
 		modulation = "Bulking"
 	}
 
+	var setNumber int32
+	if req.Sets != nil {
+		setNumber = int32(*req.Sets)
+	} else {
+		highestSetNumber, err := getHighestSetNumberForExerciseInLast12Hours(req.Exercise)
+		if err != nil {
+			log.Printf("Warning: failed to get highest set number for %s, defaulting to 1: %v", req.Exercise, err)
+			setNumber = 1
+		} else {
+			setNumber = highestSetNumber + 1
+		}
+	}
+
 	item := SetItem{
 		WorkoutID:        uuid.NewString(),
 		Timestamp:        time.Now().Unix(),
 		Exercise:         req.Exercise,
 		Reps:             req.Reps,
-		Sets:             int32(req.Sets),
+		Sets:             setNumber,
 		Weight:           req.Weight,
 		WeightModulation: modulation,
 	}

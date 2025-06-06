@@ -11,7 +11,7 @@ type DeleteExerciseRequest struct {
 type LogSetRequest struct {
 	Exercise  string  `json:"exercise"`
 	Reps      string  `json:"reps"`
-	Sets      int     `json:"sets"`
+	Sets      *int    `json:"sets,omitempty"`
 	Weight    float32 `json:"weight"`
 	IsCutting *bool   `json:"isCutting"`
 }

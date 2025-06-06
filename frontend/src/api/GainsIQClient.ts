@@ -45,7 +45,7 @@ export class GainsIQClient {
   async logWorkoutSet(data: {
     exercise: string;
     reps: string;
-    sets: number;
+    sets?: number;
     weight: number;
     isCutting: boolean;
   }): Promise<{ success: boolean }> {
