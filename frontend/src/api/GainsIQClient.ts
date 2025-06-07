@@ -45,7 +45,6 @@ export class GainsIQClient {
   async logWorkoutSet(data: {
     exercise: string;
     reps: string;
-    sets: number;
     weight: number;
     isCutting: boolean;
   }): Promise<{ success: boolean }> {
@@ -66,9 +65,7 @@ export class GainsIQClient {
   async editSet(payload: {
     workoutId: string;
     timestamp: number;
-    exercise: string;
     reps: string;
-    sets: number;
     weight: number;
   }): Promise<{ success: boolean }> {
     return this.request<{ success: boolean }>("/sets/edit", {

@@ -30,7 +30,7 @@ const WorkoutTracker: React.FC = () => {
   const dispatch = useDispatch();
   const unit = useSelector((state: RootState) => state.weightUnit.weightUnit);
   const weightModulation = useSelector((state: RootState) => state.weightModulation.cuttingState)
-  const { selectedExercise, reps, setNumber, weight } = useSelector(
+  const { selectedExercise, reps, weight } = useSelector(
     (state: RootState) => state.workoutForm
   );
 
@@ -62,30 +62,22 @@ const WorkoutTracker: React.FC = () => {
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const convertedWeight = convertToPounds(parseFloat(weight), unit);
-    const setData: Set = {
-      exercise: selectedExercise,
-      reps: reps.toString(),
-      setNumber: parseInt(setNumber),
-      weight: convertedWeight,
-    };
-    const fifthSet = parseInt(setNumber) === 5
 
     try {
       await client.logWorkoutSet({
-        exercise: setData.exercise,
-        reps: setData.reps,
-        sets: setData.setNumber,
-        weight: setData.weight,
+        exercise: selectedExercise,
+        reps: reps.toString(),
+        weight: convertedWeight,
         isCutting: weightModulation === "CUTTING" ? true : false
       });
 
       setConfirmationMessage(
-        `Logged: Set number ${setNumber} for ${selectedExercise}, ${reps} rep(s) with ${convertedWeight.toFixed(
+        `Logged: Set for ${selectedExercise}, ${reps} rep(s) with ${convertedWeight.toFixed(
           2
         )} lbs`
       );
       setSnackbarOpen(true);
-      dispatch(updateWorkoutForm({ selectedExercise: selectedExercise, reps: '', setNumber: fifthSet ? "5" : String(parseInt(setNumber) + 1), weight: weight}));
+      dispatch(updateWorkoutForm({ selectedExercise: selectedExercise, reps: '', weight: weight}));
     } catch (error) {
       console.error('Error logging workout:', error);
     }
@@ -135,9 +127,6 @@ const WorkoutTracker: React.FC = () => {
     dispatch(updateWorkoutForm({ reps: e.target.value as string }));
   };
 
-  const handleSetNumberChange = (e: any) => {
-    dispatch(updateWorkoutForm({ setNumber: e.target.value as string }));
-  };
 
   const handleWeightChange = (e: any) => {
     dispatch(updateWorkoutForm({ weight: e.target.value }));
@@ -227,35 +216,8 @@ const WorkoutTracker: React.FC = () => {
                 </FormControl>
               </Grid>
 
-              <Grid item xs={12} sm={6}>
-                <FormControl 
-                  fullWidth 
-                  required
-                  sx={{
-                    '& .MuiOutlinedInput-root': {
-                      backgroundColor: grey[50],
-                      '&:hover .MuiOutlinedInput-notchedOutline': {
-                        borderColor: grey[400],
-                      },
-                    },
-                    '& .MuiInputLabel-root': {
-                      color: grey[600],
-                    }
-                  }}
-                >
-                  <InputLabel>Set Number</InputLabel>
-                  <Select value={setNumber} onChange={handleSetNumberChange} label="Sets">
-                    <MenuItem value="">-- Select Set Number --</MenuItem>
-                    {[...Array(5).keys()].map((n) => (
-                      <MenuItem key={n} value={(n + 1).toString()}>
-                        {n + 1}
-                      </MenuItem>
-                    ))}
-                  </Select>
-                </FormControl>
-              </Grid>
 
-              <Grid item xs={12} sm={4}>
+              <Grid item xs={12} sm={6}>
                 <TextField
                   fullWidth
                   label="Weight"
@@ -277,7 +239,7 @@ const WorkoutTracker: React.FC = () => {
                 />
               </Grid>
 
-              <Grid item xs={12} sm={4}>
+              <Grid item xs={12} sm={3}>
                 <FormControl 
                   fullWidth 
                   required
@@ -310,7 +272,7 @@ const WorkoutTracker: React.FC = () => {
                 </FormControl>
               </Grid>
 
-              <Grid item xs={12} sm={4}>
+              <Grid item xs={12} sm={3}>
                 <FormControl 
                   fullWidth 
                   required

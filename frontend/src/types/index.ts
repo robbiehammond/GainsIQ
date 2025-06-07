@@ -39,7 +39,6 @@ export type CuttingState = 'CUTTING' | 'BULKING';
 export interface WorkoutFormState {
     selectedExercise: string;
     reps: string;
-    setNumber: string;
     weight: string;
 }
 

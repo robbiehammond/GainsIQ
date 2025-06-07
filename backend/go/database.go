@@ -289,12 +289,19 @@ func logSetToDB(req LogSetRequest) error {
 		modulation = "Bulking"
 	}
 
+	// Calculate set number based on same-day exercises
+	currentTimestamp := time.Now().Unix()
+	setNumber, err := calculateSetNumber(req.Exercise, currentTimestamp)
+	if err != nil {
+		return fmt.Errorf("failed to calculate set number: %w", err)
+	}
+
 	item := SetItem{
 		WorkoutID:        uuid.NewString(),
-		Timestamp:        time.Now().Unix(),
+		Timestamp:        currentTimestamp,
 		Exercise:         req.Exercise,
 		Reps:             req.Reps,
-		Sets:             int32(req.Sets),
+		Sets:             int32(setNumber),
 		Weight:           req.Weight,
 		WeightModulation: modulation,
 	}
@@ -522,17 +529,47 @@ func deleteSetFromDB(workoutID string, timestamp int64) error {
 	if workoutID == "" || timestamp == 0 {
 		return fmt.Errorf("invalid input: workoutId and timestamp are required")
 	}
+
+	// First, get the exercise name and date of the set being deleted
+	getInput := &dynamodb.GetItemInput{
+		TableName: aws.String(setsTableName),
+		Key: map[string]types.AttributeValue{
+			"workoutId": &types.AttributeValueMemberS{Value: workoutID},
+			"timestamp": &types.AttributeValueMemberN{Value: strconv.FormatInt(timestamp, 10)},
+		},
+	}
+	getResult, err := ddbClient.GetItem(context.TODO(), getInput)
+	if err != nil {
+		return fmt.Errorf("failed to get set before deletion: %w", err)
+	}
+	if getResult.Item == nil {
+		return fmt.Errorf("set not found for deletion")
+	}
+
+	var deletedSet SetItem
+	if err := attributevalue.UnmarshalMap(getResult.Item, &deletedSet); err != nil {
+		return fmt.Errorf("failed to unmarshal set for deletion: %w", err)
+	}
+
+	// Delete the set
 	key := map[string]types.AttributeValue{
 		"workoutId": &types.AttributeValueMemberS{Value: workoutID},
 		"timestamp": &types.AttributeValueMemberN{Value: strconv.FormatInt(timestamp, 10)},
 	}
-	_, err := ddbClient.DeleteItem(context.TODO(), &dynamodb.DeleteItemInput{
+	_, err = ddbClient.DeleteItem(context.TODO(), &dynamodb.DeleteItemInput{
 		TableName: aws.String(setsTableName),
 		Key:       key,
 	})
 	if err != nil {
 		return fmt.Errorf("failed to delete set (workoutId %s, ts %d): %w", workoutID, timestamp, err)
 	}
+
+	// Recalculate set numbers for the same exercise on the same day
+	err = recalculateSetNumbers(deletedSet.Exercise, deletedSet.Timestamp)
+	if err != nil {
+		return fmt.Errorf("failed to recalculate set numbers after deletion: %w", err)
+	}
+
 	return nil
 }
 
@@ -565,6 +602,146 @@ func getMostRecentAnalysisFromDB() (map[string]string, bool, error) {
 		return nil, false, fmt.Errorf("no valid analysis item found despite items being present")
 	}
 	return map[string]string{"analysis": mostRecentAnalysisItem.Analysis}, true, nil
+}
+
+func calculateSetNumber(exercise string, timestamp int64) (int, error) {
+	// Get start and end of the day for the given timestamp
+	dayStart := time.Unix(timestamp, 0).Truncate(24 * time.Hour).Unix()
+	dayEnd := dayStart + 86400 - 1 // End of day
+
+	// Query for existing sets of this exercise on the same day
+	filterExpression := "#ex = :exercise_val AND #ts BETWEEN :start_ts AND :end_ts"
+	exprAttrNames := map[string]string{
+		"#ex": "exercise",
+		"#ts": "timestamp",
+	}
+	exprAttrValuesMap := map[string]interface{}{
+		":exercise_val": exercise,
+		":start_ts":     dayStart,
+		":end_ts":       dayEnd,
+	}
+	marshaledExprAttrValues, err := attributevalue.MarshalMap(exprAttrValuesMap)
+	if err != nil {
+		return 0, fmt.Errorf("failed to marshal expression attribute values: %w", err)
+	}
+
+	scanInput := &dynamodb.ScanInput{
+		TableName:                 aws.String(setsTableName),
+		FilterExpression:          aws.String(filterExpression),
+		ExpressionAttributeNames:  exprAttrNames,
+		ExpressionAttributeValues: marshaledExprAttrValues,
+	}
+
+	result, err := ddbClient.Scan(context.TODO(), scanInput)
+	if err != nil {
+		return 0, fmt.Errorf("failed to scan sets for set number calculation: %w", err)
+	}
+
+	var existingSets []SetItem
+	for _, itemMap := range result.Items {
+		var si SetItem
+		if errUnmarshal := attributevalue.UnmarshalMap(itemMap, &si); errUnmarshal != nil {
+			log.Printf("Warning: failed to unmarshal set item during set number calculation: %v", errUnmarshal)
+			continue
+		}
+		existingSets = append(existingSets, si)
+	}
+
+	// Sort by timestamp to determine order
+	sort.SliceStable(existingSets, func(i, j int) bool {
+		return existingSets[i].Timestamp < existingSets[j].Timestamp
+	})
+
+	// Find the highest set number and return the next one
+	maxSetNumber := 0
+	for _, set := range existingSets {
+		if int(set.Sets) > maxSetNumber {
+			maxSetNumber = int(set.Sets)
+		}
+	}
+
+	return maxSetNumber + 1, nil
+}
+
+func recalculateSetNumbers(exercise string, timestamp int64) error {
+	// Get start and end of the day for the given timestamp
+	dayStart := time.Unix(timestamp, 0).Truncate(24 * time.Hour).Unix()
+	dayEnd := dayStart + 86400 - 1 // End of day
+
+	// Query for existing sets of this exercise on the same day
+	filterExpression := "#ex = :exercise_val AND #ts BETWEEN :start_ts AND :end_ts"
+	exprAttrNames := map[string]string{
+		"#ex": "exercise",
+		"#ts": "timestamp",
+	}
+	exprAttrValuesMap := map[string]interface{}{
+		":exercise_val": exercise,
+		":start_ts":     dayStart,
+		":end_ts":       dayEnd,
+	}
+	marshaledExprAttrValues, err := attributevalue.MarshalMap(exprAttrValuesMap)
+	if err != nil {
+		return fmt.Errorf("failed to marshal expression attribute values: %w", err)
+	}
+
+	scanInput := &dynamodb.ScanInput{
+		TableName:                 aws.String(setsTableName),
+		FilterExpression:          aws.String(filterExpression),
+		ExpressionAttributeNames:  exprAttrNames,
+		ExpressionAttributeValues: marshaledExprAttrValues,
+	}
+
+	result, err := ddbClient.Scan(context.TODO(), scanInput)
+	if err != nil {
+		return fmt.Errorf("failed to scan sets for recalculation: %w", err)
+	}
+
+	var existingSets []SetItem
+	for _, itemMap := range result.Items {
+		var si SetItem
+		if errUnmarshal := attributevalue.UnmarshalMap(itemMap, &si); errUnmarshal != nil {
+			log.Printf("Warning: failed to unmarshal set item during recalculation: %v", errUnmarshal)
+			continue
+		}
+		existingSets = append(existingSets, si)
+	}
+
+	// Sort by timestamp to determine correct order
+	sort.SliceStable(existingSets, func(i, j int) bool {
+		return existingSets[i].Timestamp < existingSets[j].Timestamp
+	})
+
+	// Update each set with the correct set number
+	for i, set := range existingSets {
+		newSetNumber := i + 1
+		if int(set.Sets) != newSetNumber {
+			// Update the set number
+			key := map[string]types.AttributeValue{
+				"workoutId": &types.AttributeValueMemberS{Value: set.WorkoutID},
+				"timestamp": &types.AttributeValueMemberN{Value: strconv.FormatInt(set.Timestamp, 10)},
+			}
+
+			updateInput := &dynamodb.UpdateItemInput{
+				TableName: aws.String(setsTableName),
+				Key:       key,
+				UpdateExpression: aws.String("SET #s = :s"),
+				ExpressionAttributeNames: map[string]string{
+					"#s": "sets",
+				},
+				ExpressionAttributeValues: map[string]types.AttributeValue{
+					":s": &types.AttributeValueMemberN{Value: strconv.Itoa(newSetNumber)},
+				},
+				ReturnValues: types.ReturnValueNone,
+			}
+
+			_, err := ddbClient.UpdateItem(context.TODO(), updateInput)
+			if err != nil {
+				return fmt.Errorf("failed to update set number for workoutId %s: %w", set.WorkoutID, err)
+			}
+		}
+	}
+
+	return nil
 }
 
 func pingProcessingLambdaViaSQS() (messageID string, err error) {

@@ -111,14 +111,13 @@ const LastMonthWorkouts: React.FC = () => {
     };
   
     try {
-      const _ = client.deleteSet(payload);
+      await client.deleteSet(payload);
   
-      setSets((prevSets) =>
-        prevSets.filter(
-          (item) =>
-            !(item.workoutId === set.workoutId && item.timestamp === set.timestamp)
-        )
-      );
+      // Refresh the entire day's data to see reordered set numbers
+      const startTs = Math.floor(selectedDate.startOf('day').valueOf() / 1000);
+      const endTs = Math.floor(selectedDate.endOf('day').valueOf() / 1000);
+      const refreshedData = await client.getSets({ start: startTs, end: endTs });
+      setSets(refreshedData.map(SetUtils.fromBackend) || []);
     } catch (error) {
       console.error('Error deleting set:', error);
     }
@@ -131,9 +130,7 @@ const LastMonthWorkouts: React.FC = () => {
     const payload = {
       workoutId: editingKeys.workoutId,
       timestamp: Number(editingKeys.timestamp),
-      exercise: editingValues.exercise,
       reps: editingValues.reps,
-      sets: Number(editingValues.setNumber),
       weight: Number(editingValues.weight) 
     };
 
@@ -223,25 +220,6 @@ const LastMonthWorkouts: React.FC = () => {
                           label="Reps"
                           value={editingValues.reps}
                           onChange={(e) => handleChange('reps', e.target.value)}
-                          fullWidth
-                          sx={{ 
-                            marginBottom: '12px',
-                            '& .MuiOutlinedInput-root': {
-                              backgroundColor: '#ffffff',
-                              '&:hover .MuiOutlinedInput-notchedOutline': {
-                                borderColor: grey[400],
-                              },
-                            },
-                            '& .MuiInputLabel-root': {
-                              color: grey[600],
-                            }
-                          }}
-                        />
-                        <TextField
-                          label="Set Number"
-                          type="number"
-                          value={editingValues.setNumber}
-                          onChange={(e) => handleChange('setNumber', Number(e.target.value))}
                           fullWidth
                           sx={{ 
                             marginBottom: '12px',

@@ -4,7 +4,6 @@ import { WorkoutFormState } from '../../types';
 const initialState: WorkoutFormState = {
   selectedExercise: '',
   reps: '',
-  setNumber: '',
   weight: '',
 };
 
