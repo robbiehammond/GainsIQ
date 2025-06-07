@@ -239,7 +239,7 @@ const WorkoutTracker: React.FC = () => {
                 />
               </Grid>
 
-              <Grid item xs={12} sm={3}>
+              <Grid item xs={12} sm={6}>
                 <FormControl 
                   fullWidth 
                   required
@@ -272,7 +272,7 @@ const WorkoutTracker: React.FC = () => {
                 </FormControl>
               </Grid>
 
-              <Grid item xs={12} sm={3}>
+              <Grid item xs={12} sm={6}>
                 <FormControl 
                   fullWidth 
                   required
@@ -297,7 +297,7 @@ const WorkoutTracker: React.FC = () => {
                         dispatch(setCuttingState(value as 'CUTTING' | 'BULKING'));
                       }
                     }}
-                    label="Unit"
+                    label="Cutting?"
                   >
                     <MenuItem value="CUTTING">Cutting</MenuItem>
                     <MenuItem value="BULKING">Bulking</MenuItem>

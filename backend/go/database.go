@@ -122,7 +122,7 @@ func getWeightsFromDB() ([]WeightOutputItem, error) {
 
 func calculateWeightTrend() (WeightTrendResponse, error) {
 	twoWeeksAgo := time.Now().AddDate(0, 0, -14).Unix()
-	
+
 	scanInput := &dynamodb.ScanInput{
 		TableName:        aws.String(weightTableName),
 		FilterExpression: aws.String("#ts >= :two_weeks_ago"),
@@ -133,16 +133,16 @@ func calculateWeightTrend() (WeightTrendResponse, error) {
 			":two_weeks_ago": &types.AttributeValueMemberN{Value: strconv.FormatInt(twoWeeksAgo, 10)},
 		},
 	}
-	
+
 	result, err := ddbClient.Scan(context.TODO(), scanInput)
 	if err != nil {
 		return WeightTrendResponse{}, fmt.Errorf("failed to scan weight table for trend: %w", err)
 	}
-	
+
 	if len(result.Items) < 2 {
 		return WeightTrendResponse{}, fmt.Errorf("insufficient data points for trend calculation (need at least 2)")
 	}
-	
+
 	var weightItems []WeightItem
 	for _, itemMap := range result.Items {
 		var wi WeightItem
@@ -152,19 +152,19 @@ func calculateWeightTrend() (WeightTrendResponse, error) {
 		}
 		weightItems = append(weightItems, wi)
 	}
-	
+
 	if len(weightItems) < 2 {
 		return WeightTrendResponse{}, fmt.Errorf("insufficient valid data points for trend calculation")
 	}
-	
+
 	sort.SliceStable(weightItems, func(i, j int) bool {
 		return weightItems[i].Timestamp < weightItems[j].Timestamp
 	})
-	
+
 	// Calculate linear regression (best fit line)
 	n := float64(len(weightItems))
 	var sumX, sumY, sumXY, sumX2 float64
-	
+
 	for _, item := range weightItems {
 		x := float64(item.Timestamp)
 		y := float64(item.Weight)
@@ -173,15 +173,15 @@ func calculateWeightTrend() (WeightTrendResponse, error) {
 		sumXY += x * y
 		sumX2 += x * x
 	}
-	
+
 	// Slope formula: (n*sumXY - sumX*sumY) / (n*sumX2 - sumX*sumX)
 	slope := (n*sumXY - sumX*sumY) / (n*sumX2 - sumX*sumX)
-	
+
 	// Convert slope from pounds per second to pounds per day
 	slopePoundsPerDay := slope * 86400 // 86400 seconds in a day
-	
+
 	currentDate := time.Now().Format("2006-01-02")
-	
+
 	return WeightTrendResponse{
 		Date:  currentDate,
 		Slope: slopePoundsPerDay,
@@ -605,7 +605,6 @@ func getMostRecentAnalysisFromDB() (map[string]string, bool, error) {
 }
 
 func calculateSetNumber(exercise string, timestamp int64) (int, error) {
-	// Get start and end of the day for the given timestamp
 	dayStart := time.Unix(timestamp, 0).Truncate(24 * time.Hour).Unix()
 	dayEnd := dayStart + 86400 - 1 // End of day
 
@@ -664,11 +663,9 @@ func calculateSetNumber(exercise string, timestamp int64) (int, error) {
 }
 
 func recalculateSetNumbers(exercise string, timestamp int64) error {
-	// Get start and end of the day for the given timestamp
 	dayStart := time.Unix(timestamp, 0).Truncate(24 * time.Hour).Unix()
 	dayEnd := dayStart + 86400 - 1 // End of day
 
-	// Query for existing sets of this exercise on the same day
 	filterExpression := "#ex = :exercise_val AND #ts BETWEEN :start_ts AND :end_ts"
 	exprAttrNames := map[string]string{
 		"#ex": "exercise",
@@ -706,7 +703,6 @@ func recalculateSetNumbers(exercise string, timestamp int64) error {
 		existingSets = append(existingSets, si)
 	}
 
-	// Sort by timestamp to determine correct order
 	sort.SliceStable(existingSets, func(i, j int) bool {
 		return existingSets[i].Timestamp < existingSets[j].Timestamp
 	})
@@ -715,15 +711,14 @@ func recalculateSetNumbers(exercise string, timestamp int64) error {
 	for i, set := range existingSets {
 		newSetNumber := i + 1
 		if int(set.Sets) != newSetNumber {
-			// Update the set number
 			key := map[string]types.AttributeValue{
 				"workoutId": &types.AttributeValueMemberS{Value: set.WorkoutID},
 				"timestamp": &types.AttributeValueMemberN{Value: strconv.FormatInt(set.Timestamp, 10)},
 			}
 
 			updateInput := &dynamodb.UpdateItemInput{
-				TableName: aws.String(setsTableName),
-				Key:       key,
+				TableName:        aws.String(setsTableName),
+				Key:              key,
 				UpdateExpression: aws.String("SET #s = :s"),
 				ExpressionAttributeNames: map[string]string{
 					"#s": "sets",
