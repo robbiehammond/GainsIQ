@@ -6,7 +6,7 @@ interface CuttingState {
 }
 
 const initialState: CuttingState = {
-  cuttingState: 'CUTTING',
+  cuttingState: 'BULKING',
 };
 
 const cuttingSlice = createSlice({

@@ -20,7 +20,6 @@ import { theme } from '../style/theme';
 import { WeightEntryData } from '../types';
 import { apiUrl, client } from '../utils/ApiUtils';
 
-// Recharts imports
 import {
   LineChart,
   Line,
@@ -34,7 +33,7 @@ import {
 
 import dayjs from 'dayjs';
 
-type TimeRange = '1month' | '3months' | '6months' | '1year' | 'all';
+type TimeRange = '1week' | '1month' | '3months' | '6months' | '1year' | 'all';
 
 const WeightEntry: React.FC = () => {
   const [weight, setWeight] = useState<string>('');
@@ -128,6 +127,8 @@ const WeightEntry: React.FC = () => {
   const getTimeRangeInMs = (range: TimeRange): number => {
     const now = Date.now();
     switch (range) {
+      case '1week':
+        return now - (30 * 24 * 60 * 60 * 1000);
       case '1month':
         return now - (30 * 24 * 60 * 60 * 1000);
       case '3months':
@@ -313,6 +314,7 @@ const WeightEntry: React.FC = () => {
                   onChange={(e: SelectChangeEvent) => setTimeRange(e.target.value as TimeRange)}
                   sx={{ color: '#2c2c2c' }}
                 >
+                  <MenuItem value="1week">Last Week</MenuItem>
                   <MenuItem value="1month">Last Month</MenuItem>
                   <MenuItem value="3months">Last 3 Months</MenuItem>
                   <MenuItem value="6months">Last 6 Months</MenuItem>

@@ -88,8 +88,14 @@ const ExerciseProgressPage: React.FC = () => {
       const startTs = dateToUnix(startDate);
       const endTs = dateToUnix(endDate);
 
+      // TODO: Maybe abstract the null-checking to the client itself? So it just guaranteed returns a list?
       const response = await client.getSetsByExercise({exerciseName: selectedExercise, start: startTs, end: endTs});
-      setSetsData(response);
+      if (!response) {
+        setSetsData([]);
+      }
+      else {
+        setSetsData(response);
+      }
       
     } catch (err) {
       console.error('Error fetching sets by exercise:', err);
