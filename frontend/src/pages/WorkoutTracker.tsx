@@ -16,11 +16,12 @@ import {
   Card,
   CardContent,
   ThemeProvider,
+  Box,
 } from '@mui/material';
 import { grey } from '@mui/material/colors';
 import { theme } from '../style/theme';
-import { Set } from '../types';
-import { environment, client } from '../utils/ApiUtils';
+import { Set, WorkoutSet } from '../types';
+import { environment, client, getTodaysSets } from '../utils/ApiUtils';
 import { useDispatch, useSelector } from 'react-redux';
 import { RootState } from '../types/store';
 import { setWeightUnit, setCuttingState, updateWorkoutForm } from '../store/slices';
@@ -39,6 +40,7 @@ const WorkoutTracker: React.FC = () => {
   const [newExercise, setNewExercise] = React.useState<string>('');
   const [confirmationMessage, setConfirmationMessage] = React.useState<string>('');
   const [snackbarOpen, setSnackbarOpen] = React.useState<boolean>(false);
+  const [lastSetTime, setLastSetTime] = React.useState<string | null>(null);
 
   useEffect(() => {
     const fetchExercises = async () => {
@@ -52,8 +54,53 @@ const WorkoutTracker: React.FC = () => {
     };
 
     fetchExercises();
+    fetchTodaysSets();
+
+    // Add event listener for when the user returns to this tab/window
+    const handleFocus = () => {
+      fetchTodaysSets();
+    };
+
+    const handleVisibilityChange = () => {
+      if (!document.hidden) {
+        fetchTodaysSets();
+      }
+    };
+
+    window.addEventListener('focus', handleFocus);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    // Cleanup event listeners
+    return () => {
+      window.removeEventListener('focus', handleFocus);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
   }, []);
 
+  const fetchTodaysSets = async () => {
+    try {
+      const sets = await getTodaysSets();
+
+      if (sets && sets.length > 0) {
+        // Find the most recent set (highest timestamp)
+        const sortedSets = sets.sort((a, b) => 
+          parseInt(b.timestamp) - parseInt(a.timestamp)
+        );
+        const lastSet = sortedSets[0];
+        
+        // Format the timestamp to show time (same logic as LastMonthWorkouts)
+        const lastSetDate = new Date(parseInt(lastSet.timestamp) * 1000);
+        const timeString = lastSetDate.toLocaleTimeString();
+        
+        setLastSetTime(timeString);
+      } else {
+        setLastSetTime(null);
+      }
+    } catch (error) {
+      console.error('Error fetching today\'s sets:', error);
+      setLastSetTime(null);
+    }
+  };
 
   const convertToPounds = (weight: number, unit: 'lbs' | 'kg'): number => {
     return unit === 'kg' ? weight * 2.20462 : weight;
@@ -78,6 +125,11 @@ const WorkoutTracker: React.FC = () => {
       );
       setSnackbarOpen(true);
       dispatch(updateWorkoutForm({ selectedExercise: selectedExercise, reps: '', weight: weight}));
+      
+      // Update the last set time after logging a new set
+      const now = new Date();
+      const timeString = now.toLocaleTimeString();
+      setLastSetTime(timeString);
     } catch (error) {
       console.error('Error logging workout:', error);
     }
@@ -149,6 +201,21 @@ const WorkoutTracker: React.FC = () => {
               </Typography>
             )}
           </Typography>
+
+          {lastSetTime && (
+            <Box sx={{ 
+              mb: 3, 
+              p: 2, 
+              backgroundColor: grey[50], 
+              borderRadius: 2,
+              border: `1px solid ${grey[200]}`,
+              textAlign: 'center'
+            }}>
+              <Typography variant="body2" color="text.secondary">
+                Last set performed at {lastSetTime}
+              </Typography>
+            </Box>
+          )}
 
           <form onSubmit={handleSubmit}>
             <Grid container spacing={2} sx={{ mb: 3 }}>

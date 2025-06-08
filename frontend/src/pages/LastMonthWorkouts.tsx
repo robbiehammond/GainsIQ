@@ -17,7 +17,7 @@ import { StaticDatePicker } from '@mui/x-date-pickers/StaticDatePicker';
 // Removed Accordion and grouping components for direct list display
 import { theme } from '../style/theme';
 import { Set, SetUtils } from '../types';
-import { apiUrl, client } from '../utils/ApiUtils';
+import { apiUrl, client, getSetsForDate } from '../utils/ApiUtils';
 import DeleteIcon from '@mui/icons-material/Delete'; 
 import { useSelector } from 'react-redux';
 import { RootState } from '../types/store';
@@ -65,10 +65,8 @@ const LastMonthWorkouts: React.FC = () => {
     const fetchWorkouts = async () => {
       setLoading(true);
       try {
-        const startTs = Math.floor(selectedDate.startOf('day').valueOf() / 1000);
-        const endTs = Math.floor(selectedDate.endOf('day').valueOf() / 1000);
-        const data = await client.getSets({ start: startTs, end: endTs });
-        setSets(data.map(SetUtils.fromBackend) || []);
+        const data = await getSetsForDate(selectedDate.toDate());
+        setSets(data.map(SetUtils.fromBackend || []));
       } catch (error) {
         console.error('Error fetching workouts for date:', error);
         setSets([]);
@@ -114,9 +112,7 @@ const LastMonthWorkouts: React.FC = () => {
       await client.deleteSet(payload);
   
       // Refresh the entire day's data to see reordered set numbers
-      const startTs = Math.floor(selectedDate.startOf('day').valueOf() / 1000);
-      const endTs = Math.floor(selectedDate.endOf('day').valueOf() / 1000);
-      const refreshedData = await client.getSets({ start: startTs, end: endTs });
+      const refreshedData = await getSetsForDate(selectedDate.toDate());
       setSets(refreshedData.map(SetUtils.fromBackend) || []);
     } catch (error) {
       console.error('Error deleting set:', error);
