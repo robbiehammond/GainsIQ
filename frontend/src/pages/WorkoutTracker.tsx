@@ -21,7 +21,7 @@ import {
 import { grey } from '@mui/material/colors';
 import { theme } from '../style/theme';
 import { Set, WorkoutSet } from '../types';
-import { environment, client, getTodaysSets } from '../utils/ApiUtils';
+import { environment, client } from '../utils/ApiUtils';
 import { useDispatch, useSelector } from 'react-redux';
 import { RootState } from '../types/store';
 import { setWeightUnit, setCuttingState, updateWorkoutForm } from '../store/slices';
@@ -54,50 +54,39 @@ const WorkoutTracker: React.FC = () => {
     };
 
     fetchExercises();
-    fetchTodaysSets();
-
-    // Add event listener for when the user returns to this tab/window
-    const handleFocus = () => {
-      fetchTodaysSets();
-    };
-
-    const handleVisibilityChange = () => {
-      if (!document.hidden) {
-        fetchTodaysSets();
-      }
-    };
-
-    window.addEventListener('focus', handleFocus);
-    document.addEventListener('visibilitychange', handleVisibilityChange);
-
-    // Cleanup event listeners
-    return () => {
-      window.removeEventListener('focus', handleFocus);
-      document.removeEventListener('visibilitychange', handleVisibilityChange);
-    };
+    fetchRecentSets();
   }, []);
 
-  const fetchTodaysSets = async () => {
+  const fetchRecentSets = async () => {
     try {
-      const sets = await getTodaysSets();
+      const now = new Date();
+      const twentyFourHoursAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+      
+      const startTs = Math.floor(twentyFourHoursAgo.getTime() / 1000);
+      const endTs = Math.floor(now.getTime() / 1000);
+      
+      const sets = await client.getSets({ start: startTs, end: endTs });
 
       if (sets && sets.length > 0) {
-        // Find the most recent set (highest timestamp)
         const sortedSets = sets.sort((a, b) => 
           parseInt(b.timestamp) - parseInt(a.timestamp)
         );
         const lastSet = sortedSets[0];
         
-        // Format the timestamp to show time (same logic as LastMonthWorkouts)
         const lastSetDate = new Date(parseInt(lastSet.timestamp) * 1000);
-        const timeString = lastSetDate.toLocaleTimeString();
+        const twelveHoursAgo = new Date(now.getTime() - 12 * 60 * 60 * 1000);
         
-        setLastSetTime(timeString);
+        if (lastSetDate > twelveHoursAgo) {
+          const timeString = lastSetDate.toLocaleTimeString();
+          setLastSetTime(timeString);
+        } else {
+          setLastSetTime(null);
+        }
       } else {
         setLastSetTime(null);
       }
     } catch (error) {
-      console.error('Error fetching today\'s sets:', error);
+      console.error('Error fetching recent sets:', error);
       setLastSetTime(null);
     }
   };
