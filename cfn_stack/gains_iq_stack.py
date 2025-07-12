@@ -16,7 +16,9 @@ from aws_cdk import (
     Duration,
     aws_logs as logs,
     aws_cloudfront as cloudfront,
-    aws_cloudfront_origins as origins
+    aws_cloudfront_origins as origins,
+    aws_stepfunctions as sfn,
+    aws_stepfunctions_tasks as tasks
 )
 import json
 from constructs import Construct
@@ -306,3 +308,160 @@ class GainsIQStack(Stack):
         )
 
         daily_anomaly_rule.add_target(targets.LambdaFunction(anomaly_detection_lambda))
+
+        # Oura Integration
+        self._setup_oura_integration(suffix, lambda_role, oura_api_key)
+
+    def _setup_oura_integration(self, suffix: str, lambda_role: iam.Role, oura_api_key: str):
+        """Set up Oura Ring integration with Step Functions"""
+        
+        # DynamoDB table for sleep data
+        oura_sleep_table = dynamodb.Table(self, f"OuraSleepTable{suffix}",
+            partition_key=dynamodb.Attribute(name="date", type=dynamodb.AttributeType.STRING),
+            billing_mode=dynamodb.BillingMode.PAY_PER_REQUEST,
+            point_in_time_recovery=True
+        )
+
+        # Grant DynamoDB permissions for Oura integration
+        lambda_role.add_to_policy(iam.PolicyStatement(
+            effect=iam.Effect.ALLOW,
+            actions=[
+                "dynamodb:PutItem",
+                "dynamodb:GetItem",
+                "dynamodb:UpdateItem",
+                "dynamodb:DeleteItem",
+                "dynamodb:Query",
+                "dynamodb:Scan"
+            ],
+            resources=[oura_sleep_table.table_arn]
+        ))
+
+        # Create Lambda functions
+        lambdas = self._create_oura_lambdas(suffix, lambda_role, oura_api_key, oura_sleep_table)
+        
+        # Create Step Function
+        state_machine = self._create_oura_step_function(suffix, lambdas)
+        
+        # Set up daily trigger
+        self._setup_oura_schedule(suffix, state_machine)
+
+    def _create_oura_lambdas(self, suffix: str, lambda_role: iam.Role, oura_api_key: str, oura_sleep_table: dynamodb.Table):
+        """Create all Lambda functions for Oura integration"""
+        
+        lambda_config = {
+            'runtime': _lambda.Runtime.PYTHON_3_9,
+            'code': _lambda.Code.from_asset("backend/oura_integration/lambdas", 
+                bundling=BundlingOptions(
+                    image=_lambda.Runtime.PYTHON_3_9.bundling_image,
+                    command=[
+                        "bash", "-c",
+                        "pip install -r requirements.txt -t /asset-output && cp -au . /asset-output"
+                    ],
+                )
+            ),
+            'role': lambda_role
+        }
+        
+        lambdas = {}
+        
+        # Check missing dates Lambda
+        lambdas['check_missing'] = _lambda.Function(self, f"OuraCheckMissingLambda{suffix}",
+            handler="check_missing.lambda_handler",
+            environment={'OURA_SLEEP_TABLE': oura_sleep_table.table_name},
+            timeout=Duration.seconds(30),
+            **lambda_config
+        )
+        
+        # Fetch data Lambda
+        lambdas['fetch'] = _lambda.Function(self, f"OuraFetchLambda{suffix}",
+            handler="fetch_data.lambda_handler",
+            environment={'OURA_API_KEY': oura_api_key},
+            timeout=Duration.seconds(30),
+            **lambda_config
+        )
+        
+        # Validate data Lambda
+        lambdas['validate'] = _lambda.Function(self, f"OuraValidateLambda{suffix}",
+            handler="validate_data.lambda_handler",
+            timeout=Duration.seconds(15),
+            **lambda_config
+        )
+        
+        # Store data Lambda
+        lambdas['store'] = _lambda.Function(self, f"OuraStoreLambda{suffix}",
+            handler="store_data.lambda_handler",
+            environment={'OURA_SLEEP_TABLE': oura_sleep_table.table_name},
+            timeout=Duration.seconds(30),
+            **lambda_config
+        )
+        
+        # Log error Lambda
+        lambdas['log_error'] = _lambda.Function(self, f"OuraLogErrorLambda{suffix}",
+            handler="log_error.lambda_handler",
+            timeout=Duration.seconds(15),
+            **lambda_config
+        )
+        
+        # Summary Lambda
+        lambdas['summary'] = _lambda.Function(self, f"OuraSummaryLambda{suffix}",
+            handler="summary.lambda_handler",
+            environment={'OURA_SLEEP_TABLE': oura_sleep_table.table_name},
+            timeout=Duration.seconds(15),
+            **lambda_config
+        )
+        
+        # Process and Store Lambda (new bulk processing function)
+        lambdas['process_and_store'] = _lambda.Function(self, f"OuraProcessAndStoreLambda{suffix}",
+            handler="process_and_store.lambda_handler",
+            environment={'OURA_SLEEP_TABLE': oura_sleep_table.table_name},
+            timeout=Duration.minutes(5),
+            **lambda_config
+        )
+        
+        return lambdas
+
+    def _create_oura_step_function(self, suffix: str, lambdas: dict):
+        """Create Step Function state machine for Oura sync"""
+        
+        # Load and process step function definition
+        with open('backend/oura_integration/step_functions/oura_sync.json', 'r') as f:
+            step_function_definition = f.read()
+        
+        # Replace placeholders with actual Lambda ARNs
+        replacements = {
+            '${OuraCheckMissingLambda}': lambdas['check_missing'].function_arn,
+            '${OuraFetchLambda}': lambdas['fetch'].function_arn,
+            '${OuraProcessAndStoreLambda}': lambdas['process_and_store'].function_arn,
+            '${OuraLogErrorLambda}': lambdas['log_error'].function_arn,
+            '${OuraSummaryLambda}': lambdas['summary'].function_arn
+        }
+        
+        for placeholder, arn in replacements.items():
+            step_function_definition = step_function_definition.replace(placeholder, arn)
+
+        # Create Step Function
+        state_machine = sfn.StateMachine(self, f"OuraSyncStateMachine{suffix}",
+            definition_body=sfn.DefinitionBody.from_string(step_function_definition),
+            timeout=Duration.minutes(15),
+            logs=sfn.LogOptions(
+                destination=logs.LogGroup(self, f"OuraSyncLogGroup{suffix}"),
+                level=sfn.LogLevel.ALL
+            )
+        )
+
+        # Grant Step Function permissions to invoke Lambda functions
+        for lambda_func in lambdas.values():
+            lambda_func.grant_invoke(state_machine)
+        
+        return state_machine
+
+    def _setup_oura_schedule(self, suffix: str, state_machine: sfn.StateMachine):
+        """Set up daily trigger for Oura sync"""
+        
+        # Daily trigger for Oura sync at noon PST (8 PM UTC)
+        daily_oura_sync_rule = events.Rule(self, f"OuraDailySyncRule{suffix}",
+            schedule=events.Schedule.cron(minute="0", hour="20", day="*", month="*", year="*")
+        )
+
+        # Add Step Function as target
+        daily_oura_sync_rule.add_target(targets.SfnStateMachine(state_machine))
