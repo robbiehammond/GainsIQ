@@ -1,6 +1,7 @@
 import json
 from datetime import datetime
 
+# TODO: Fix this. the missing dates is completely broken and should be ignored in summary
 def lambda_handler(event, context):
     try:
         # Extract summary information from the step function execution

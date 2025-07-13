@@ -15,7 +15,11 @@ def decimal_default(obj):
 def validate_sleep_data(sleep_data):
     """Validate a single sleep session"""
     try:
+        session_id = sleep_data.get('sleep_session_id')
         date = sleep_data.get('date')
+        
+        if not session_id:
+            return False, "Session ID is required"
         
         if not date:
             return False, "Date is required"
@@ -93,8 +97,8 @@ def store_sleep_data(table, sleep_data):
     try:
         # Prepare item for DynamoDB
         item = {
+            'session_id': sleep_data.get('sleep_session_id'),
             'date': sleep_data.get('date'),
-            'sleep_session_id': sleep_data.get('sleep_session_id'),
             'day': sleep_data.get('day'),
             'bedtime_start': sleep_data.get('bedtime_start'),
             'bedtime_end': sleep_data.get('bedtime_end'),

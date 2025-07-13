@@ -45,8 +45,8 @@ def lambda_handler(event, context):
         
         # Prepare item for DynamoDB
         item = {
+            'session_id': sleep_data.get('sleep_session_id'),
             'date': date,
-            'sleep_session_id': sleep_data.get('sleep_session_id'),
             'day': sleep_data.get('day'),
             'bedtime_start': sleep_data.get('bedtime_start'),
             'bedtime_end': sleep_data.get('bedtime_end'),

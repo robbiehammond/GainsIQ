@@ -34,18 +34,23 @@ def lambda_handler(event, context):
             expected_dates.append(current_date.strftime('%Y-%m-%d'))
             current_date += timedelta(days=1)
         
-        # Check which dates exist in DynamoDB
         existing_dates = set()
         for date_str in expected_dates:
             try:
-                response = table.get_item(Key={'date': date_str})
-                if 'Item' in response:
+                response = table.query(
+                    IndexName='DateIndex',
+                    KeyConditionExpression='#date = :date',
+                    ExpressionAttributeNames={'#date': 'date'},
+                    ExpressionAttributeValues={':date': date_str},
+                    Select='COUNT'
+                )
+                print(f"Query for date {date_str}: Count = {response['Count']}")
+                if response['Count'] > 0:
                     existing_dates.add(date_str)
             except Exception as e:
                 print(f"Error checking date {date_str}: {str(e)}")
                 continue
         
-        # Find missing dates
         missing_dates = [date for date in expected_dates if date not in existing_dates]
         
         # Oura data is typically available with a delay, so exclude today and yesterday
@@ -58,7 +63,6 @@ def lambda_handler(event, context):
         
         # If we have dates to sync, create 7-day batches starting from earliest
         if dates_to_sync:
-            # Sort dates to ensure chronological processing (oldest first)
             dates_to_sync.sort()
             
             # Create 7-day batches

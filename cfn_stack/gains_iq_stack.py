@@ -315,11 +315,19 @@ class GainsIQStack(Stack):
     def _setup_oura_integration(self, suffix: str, lambda_role: iam.Role, oura_api_key: str):
         """Set up Oura Ring integration with Step Functions"""
         
-        # DynamoDB table for sleep data
-        oura_sleep_table = dynamodb.Table(self, f"OuraSleepTable{suffix}",
-            partition_key=dynamodb.Attribute(name="date", type=dynamodb.AttributeType.STRING),
+        # DynamoDB table for sleep data (v2 with session_id as primary key)
+        oura_sleep_table = dynamodb.Table(self, f"OuraSleepTableV2{suffix}",
+            partition_key=dynamodb.Attribute(name="session_id", type=dynamodb.AttributeType.STRING),
             billing_mode=dynamodb.BillingMode.PAY_PER_REQUEST,
             point_in_time_recovery=True
+        )
+        
+        # Add GSI for date-based queries
+        oura_sleep_table.add_global_secondary_index(
+            index_name="DateIndex",
+            partition_key=dynamodb.Attribute(name="date", type=dynamodb.AttributeType.STRING),
+            sort_key=dynamodb.Attribute(name="session_id", type=dynamodb.AttributeType.STRING),
+            projection_type=dynamodb.ProjectionType.ALL
         )
 
         # Grant DynamoDB permissions for Oura integration
