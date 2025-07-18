@@ -28,6 +28,9 @@ just run the script again after fetching the app url.
 
 Note that there's an SDK to handle API calls to the backend, which can be found here: https://github.com/robbiehammond/gainsiq-sdk <-- deprecated.
 
+## iOS App
+The current frontend is being deprecated in favor of an iOS app: https://github.com/robbiehammond/GainsIQMobile
+
 ## Design
 Just so I remember vaguely how this works:
 ![](doc/GainsIQ.png)
