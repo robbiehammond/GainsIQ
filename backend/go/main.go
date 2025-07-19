@@ -19,8 +19,12 @@ var (
 	setsTableName      string
 	weightTableName    string
 	analysesTableName  string
+	usersTableName     string
 	queueURL           string
 	apiKeyMapVar       map[string]string
+	cognitoUserPoolID  string
+	cognitoClientID    string
+	cognitoRegion      string
 )
 
 func init() {
@@ -47,9 +51,28 @@ func init() {
 	if analysesTableName == "" {
 		log.Fatal("ANALYSES_TABLE environment variable not set")
 	}
+	usersTableName = os.Getenv("USERS_TABLE")
+	if usersTableName == "" {
+		log.Fatal("USERS_TABLE environment variable not set")
+	}
 	queueURL = os.Getenv("QUEUE_URL")
 	if queueURL == "" {
 		log.Fatal("QUEUE_URL environment variable not set")
+	}
+
+	cognitoUserPoolID = os.Getenv("COGNITO_USER_POOL_ID")
+	if cognitoUserPoolID == "" {
+		log.Fatal("COGNITO_USER_POOL_ID environment variable not set")
+	}
+	cognitoClientID = os.Getenv("COGNITO_USER_POOL_CLIENT_ID")
+	if cognitoClientID == "" {
+		log.Fatal("COGNITO_USER_POOL_CLIENT_ID environment variable not set")
+	}
+	
+	cognitoRegion = os.Getenv("AWS_REGION")
+	if cognitoRegion == "" {
+		cognitoRegion = "us-west-2"
+		log.Printf("WARN: AWS_REGION not set, defaulting to %s", cognitoRegion)
 	}
 
 	apiKeyMapJSON := os.Getenv("API_KEY_MAP")

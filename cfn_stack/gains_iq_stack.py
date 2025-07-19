@@ -1,6 +1,7 @@
 from aws_cdk import (
     BundlingOptions,
     Stack,
+    RemovalPolicy,
     aws_s3 as s3,
     aws_lambda as _lambda,
     aws_apigateway as apigateway,
@@ -18,7 +19,8 @@ from aws_cdk import (
     aws_cloudfront as cloudfront,
     aws_cloudfront_origins as origins,
     aws_stepfunctions as sfn,
-    aws_stepfunctions_tasks as tasks
+    aws_stepfunctions_tasks as tasks,
+    aws_cognito as cognito
 )
 import json
 from constructs import Construct
@@ -54,6 +56,59 @@ class GainsIQStack(Stack):
 
         # Append '-preprod' to names if we're in preprod
         suffix = "-preprod" if is_preprod else ""
+
+        # Create Cognito User Pool (New version with optional email)
+        user_pool = cognito.UserPool(self, f"GainsIQUserPoolV2{suffix}",
+            user_pool_name=f"GainsIQUserPoolV2{suffix}",
+            sign_in_aliases=cognito.SignInAliases(username=True),
+            password_policy=cognito.PasswordPolicy(
+                min_length=8,
+                require_lowercase=True,
+                require_uppercase=True,
+                require_digits=True,
+                require_symbols=True
+            ),
+            self_sign_up_enabled=True,
+            standard_attributes=cognito.StandardAttributes(
+                email=cognito.StandardAttribute(required=False, mutable=True),
+                given_name=cognito.StandardAttribute(required=False, mutable=True),
+                family_name=cognito.StandardAttribute(required=False, mutable=True)
+            ),
+            removal_policy=RemovalPolicy.DESTROY
+        )
+
+        # Create User Pool Client
+        user_pool_client = cognito.UserPoolClient(self, f"GainsIQUserPoolClientV2{suffix}",
+            user_pool=user_pool,
+            user_pool_client_name=f"GainsIQUserPoolClient{suffix}",
+            generate_secret=False,
+            auth_flows=cognito.AuthFlow(
+                user_password=True,
+                user_srp=True,
+                admin_user_password=True
+            ),
+            o_auth=cognito.OAuthSettings(
+                flows=cognito.OAuthFlows(authorization_code_grant=True),
+                scopes=[cognito.OAuthScope.OPENID, cognito.OAuthScope.EMAIL, cognito.OAuthScope.PROFILE]
+            ),
+            prevent_user_existence_errors=True,
+            access_token_validity=Duration.hours(1),
+            id_token_validity=Duration.hours(1),
+            refresh_token_validity=Duration.days(30)
+        )
+
+        # Create Identity Pool
+        identity_pool = cognito.CfnIdentityPool(self, f"GainsIQIdentityPoolV2{suffix}",
+            identity_pool_name=f"GainsIQIdentityPool{suffix}",
+            allow_unauthenticated_identities=False,
+            cognito_identity_providers=[
+                cognito.CfnIdentityPool.CognitoIdentityProviderProperty(
+                    client_id=user_pool_client.user_pool_client_id,
+                    provider_name=user_pool.user_pool_provider_name,
+                    server_side_token_check=True
+                )
+            ]
+        )
 
         frontend_bucket = s3.Bucket(self, f"GainsIQFrontend{suffix}",
                                     public_read_access=False,
@@ -97,6 +152,14 @@ class GainsIQStack(Stack):
                                          partition_key=dynamodb.Attribute(
                                              name="exerciseName", type=dynamodb.AttributeType.STRING),
                                          billing_mode=dynamodb.BillingMode.PAY_PER_REQUEST)
+        
+        # Add GSI for user-based exercise queries
+        exercises_table.add_global_secondary_index(
+            index_name="UserExercisesIndex",
+            partition_key=dynamodb.Attribute(name="userId", type=dynamodb.AttributeType.STRING),
+            sort_key=dynamodb.Attribute(name="exerciseName", type=dynamodb.AttributeType.STRING),
+            projection_type=dynamodb.ProjectionType.ALL
+        )
 
         sets_table = dynamodb.Table(self, f"SetsTable{suffix}",
                                     partition_key=dynamodb.Attribute(
@@ -107,6 +170,14 @@ class GainsIQStack(Stack):
                                     point_in_time_recovery=True
                                     )
         
+        # Add GSI for user-based set queries
+        sets_table.add_global_secondary_index(
+            index_name="UserSetsIndex",
+            partition_key=dynamodb.Attribute(name="userId", type=dynamodb.AttributeType.STRING),
+            sort_key=dynamodb.Attribute(name="timestamp", type=dynamodb.AttributeType.NUMBER),
+            projection_type=dynamodb.ProjectionType.ALL
+        )
+        
         weight_table = dynamodb.Table(self, f"WeightTable{suffix}",
                                     partition_key=dynamodb.Attribute(
                                         name="timestamp", type=dynamodb.AttributeType.NUMBER),
@@ -114,11 +185,34 @@ class GainsIQStack(Stack):
                                     point_in_time_recovery=True
                                     )
         
+        # Add GSI for user-based weight queries
+        weight_table.add_global_secondary_index(
+            index_name="UserWeightIndex",
+            partition_key=dynamodb.Attribute(name="userId", type=dynamodb.AttributeType.STRING),
+            sort_key=dynamodb.Attribute(name="timestamp", type=dynamodb.AttributeType.NUMBER),
+            projection_type=dynamodb.ProjectionType.ALL
+        )
+        
         analyses_table = dynamodb.Table(self, f"AnalysesTable{suffix}",
                                         partition_key=dynamodb.Attribute(
                                             name="timestamp", type=dynamodb.AttributeType.NUMBER),
                                         billing_mode=dynamodb.BillingMode.PAY_PER_REQUEST
                                         )
+        
+        # Add GSI for user-based analysis queries
+        analyses_table.add_global_secondary_index(
+            index_name="UserAnalysisIndex",
+            partition_key=dynamodb.Attribute(name="userId", type=dynamodb.AttributeType.STRING),
+            sort_key=dynamodb.Attribute(name="timestamp", type=dynamodb.AttributeType.NUMBER),
+            projection_type=dynamodb.ProjectionType.ALL
+        )
+
+        users_table = dynamodb.Table(self, f"UsersTable{suffix}",
+                                    partition_key=dynamodb.Attribute(
+                                        name="userId", type=dynamodb.AttributeType.STRING),
+                                    billing_mode=dynamodb.BillingMode.PAY_PER_REQUEST,
+                                    point_in_time_recovery=True
+                                    )
 
         data_bucket = s3.Bucket(self, f"GainsIQDataBucket{suffix}",
                                 versioned=True)
@@ -150,7 +244,18 @@ class GainsIQStack(Stack):
                 "dynamodb:UpdateItem",
                 "dynamodb:DeleteItem"
             ],
-            resources=[exercises_table.table_arn, sets_table.table_arn, weight_table.table_arn, analyses_table.table_arn]
+            resources=[
+                exercises_table.table_arn,
+                sets_table.table_arn,
+                weight_table.table_arn,
+                analyses_table.table_arn,
+                users_table.table_arn,
+                # Add permissions for all GSIs
+                f"{exercises_table.table_arn}/index/*",
+                f"{sets_table.table_arn}/index/*",
+                f"{weight_table.table_arn}/index/*",
+                f"{analyses_table.table_arn}/index/*"
+            ]
         ))
 
         lambda_role.add_to_policy(iam.PolicyStatement(
@@ -160,6 +265,25 @@ class GainsIQStack(Stack):
                 "sqs:SendMessageBatch"
             ],
             resources=[processing_lambda_trigger_queue.queue_arn]  
+        ))
+
+        lambda_role.add_to_policy(iam.PolicyStatement(
+            effect=iam.Effect.ALLOW,
+            actions=[
+                "cognito-idp:AdminInitiateAuth",
+                "cognito-idp:AdminCreateUser",
+                "cognito-idp:AdminSetUserPassword",
+                "cognito-idp:AdminUpdateUserAttributes",
+                "cognito-idp:AdminGetUser",
+                "cognito-idp:AdminDeleteUser",
+                "cognito-idp:InitiateAuth",
+                "cognito-idp:ConfirmSignUp",
+                "cognito-idp:ResendConfirmationCode",
+                "cognito-idp:ForgotPassword",
+                "cognito-idp:ConfirmForgotPassword",
+                "cognito-idp:GetUser"
+            ],
+            resources=[user_pool.user_pool_arn]
         ))
 
         data_bucket.grant_read_write(lambda_role)
@@ -195,8 +319,12 @@ class GainsIQStack(Stack):
                                                     'EXERCISES_TABLE': exercises_table.table_name,
                                                     'SETS_TABLE': sets_table.table_name,
                                                     'WEIGHT_TABLE': weight_table.table_name,
+                                                    'USERS_TABLE': users_table.table_name,
                                                     'QUEUE_URL': processing_lambda_trigger_queue.queue_url,
-                                                    'API_KEY_MAP': api_keys_json
+                                                    'API_KEY_MAP': api_keys_json,
+                                                    'COGNITO_USER_POOL_ID': user_pool.user_pool_id,
+                                                    'COGNITO_USER_POOL_CLIENT_ID': user_pool_client.user_pool_client_id,
+                                                    'COGNITO_IDENTITY_POOL_ID': identity_pool.ref
                                                 })
         
         log_group = logs.LogGroup(self, f"GainsIQApiLogs{suffix}",
@@ -229,6 +357,14 @@ class GainsIQStack(Stack):
             stage=api.deployment_stage  
         )
         
+        # Authentication endpoints (no auth required)
+        auth = api.root.add_resource("auth")
+        register = auth.add_resource("register")
+        register.add_method("POST", apigateway.LambdaIntegration(backend_lambda, proxy=True))
+        login = auth.add_resource("login")
+        login.add_method("POST", apigateway.LambdaIntegration(backend_lambda, proxy=True))
+        refresh = auth.add_resource("refresh")
+        refresh.add_method("POST", apigateway.LambdaIntegration(backend_lambda, proxy=True))
 
         exercises = api.root.add_resource("exercises")
         exercises.add_method("POST", apigateway.LambdaIntegration(backend_lambda, proxy=True))
@@ -308,168 +444,3 @@ class GainsIQStack(Stack):
         )
 
         daily_anomaly_rule.add_target(targets.LambdaFunction(anomaly_detection_lambda))
-
-        # Oura Integration
-        self._setup_oura_integration(suffix, lambda_role, oura_api_key)
-
-    def _setup_oura_integration(self, suffix: str, lambda_role: iam.Role, oura_api_key: str):
-        """Set up Oura Ring integration with Step Functions"""
-        
-        # DynamoDB table for sleep data (v2 with session_id as primary key)
-        oura_sleep_table = dynamodb.Table(self, f"OuraSleepTableV2{suffix}",
-            partition_key=dynamodb.Attribute(name="session_id", type=dynamodb.AttributeType.STRING),
-            billing_mode=dynamodb.BillingMode.PAY_PER_REQUEST,
-            point_in_time_recovery=True
-        )
-        
-        # Add GSI for date-based queries
-        oura_sleep_table.add_global_secondary_index(
-            index_name="DateIndex",
-            partition_key=dynamodb.Attribute(name="date", type=dynamodb.AttributeType.STRING),
-            sort_key=dynamodb.Attribute(name="session_id", type=dynamodb.AttributeType.STRING),
-            projection_type=dynamodb.ProjectionType.ALL
-        )
-
-        # Grant DynamoDB permissions for Oura integration
-        lambda_role.add_to_policy(iam.PolicyStatement(
-            effect=iam.Effect.ALLOW,
-            actions=[
-                "dynamodb:PutItem",
-                "dynamodb:GetItem",
-                "dynamodb:UpdateItem",
-                "dynamodb:DeleteItem",
-                "dynamodb:Query",
-                "dynamodb:Scan"
-            ],
-            resources=[oura_sleep_table.table_arn]
-        ))
-
-        # Create Lambda functions
-        lambdas = self._create_oura_lambdas(suffix, lambda_role, oura_api_key, oura_sleep_table)
-        
-        # Create Step Function
-        state_machine = self._create_oura_step_function(suffix, lambdas)
-        
-        # Set up daily trigger
-        self._setup_oura_schedule(suffix, state_machine)
-
-    def _create_oura_lambdas(self, suffix: str, lambda_role: iam.Role, oura_api_key: str, oura_sleep_table: dynamodb.Table):
-        """Create all Lambda functions for Oura integration"""
-        
-        lambda_config = {
-            'runtime': _lambda.Runtime.PYTHON_3_9,
-            'code': _lambda.Code.from_asset("backend/oura_integration/lambdas", 
-                bundling=BundlingOptions(
-                    image=_lambda.Runtime.PYTHON_3_9.bundling_image,
-                    command=[
-                        "bash", "-c",
-                        "pip install -r requirements.txt -t /asset-output && cp -au . /asset-output"
-                    ],
-                )
-            ),
-            'role': lambda_role
-        }
-        
-        lambdas = {}
-        
-        # Check missing dates Lambda
-        lambdas['check_missing'] = _lambda.Function(self, f"OuraCheckMissingLambda{suffix}",
-            handler="check_missing.lambda_handler",
-            environment={'OURA_SLEEP_TABLE': oura_sleep_table.table_name},
-            timeout=Duration.seconds(30),
-            **lambda_config
-        )
-        
-        # Fetch data Lambda
-        lambdas['fetch'] = _lambda.Function(self, f"OuraFetchLambda{suffix}",
-            handler="fetch_data.lambda_handler",
-            environment={'OURA_API_KEY': oura_api_key},
-            timeout=Duration.seconds(30),
-            **lambda_config
-        )
-        
-        # Validate data Lambda
-        lambdas['validate'] = _lambda.Function(self, f"OuraValidateLambda{suffix}",
-            handler="validate_data.lambda_handler",
-            timeout=Duration.seconds(15),
-            **lambda_config
-        )
-        
-        # Store data Lambda
-        lambdas['store'] = _lambda.Function(self, f"OuraStoreLambda{suffix}",
-            handler="store_data.lambda_handler",
-            environment={'OURA_SLEEP_TABLE': oura_sleep_table.table_name},
-            timeout=Duration.seconds(30),
-            **lambda_config
-        )
-        
-        # Log error Lambda
-        lambdas['log_error'] = _lambda.Function(self, f"OuraLogErrorLambda{suffix}",
-            handler="log_error.lambda_handler",
-            timeout=Duration.seconds(15),
-            **lambda_config
-        )
-        
-        # Summary Lambda
-        lambdas['summary'] = _lambda.Function(self, f"OuraSummaryLambda{suffix}",
-            handler="summary.lambda_handler",
-            environment={'OURA_SLEEP_TABLE': oura_sleep_table.table_name},
-            timeout=Duration.seconds(15),
-            **lambda_config
-        )
-        
-        # Process and Store Lambda (new bulk processing function)
-        lambdas['process_and_store'] = _lambda.Function(self, f"OuraProcessAndStoreLambda{suffix}",
-            handler="process_and_store.lambda_handler",
-            environment={'OURA_SLEEP_TABLE': oura_sleep_table.table_name},
-            timeout=Duration.minutes(5),
-            **lambda_config
-        )
-        
-        return lambdas
-
-    def _create_oura_step_function(self, suffix: str, lambdas: dict):
-        """Create Step Function state machine for Oura sync"""
-        
-        # Load and process step function definition
-        with open('backend/oura_integration/step_functions/oura_sync.json', 'r') as f:
-            step_function_definition = f.read()
-        
-        # Replace placeholders with actual Lambda ARNs
-        replacements = {
-            '${OuraCheckMissingLambda}': lambdas['check_missing'].function_arn,
-            '${OuraFetchLambda}': lambdas['fetch'].function_arn,
-            '${OuraProcessAndStoreLambda}': lambdas['process_and_store'].function_arn,
-            '${OuraLogErrorLambda}': lambdas['log_error'].function_arn,
-            '${OuraSummaryLambda}': lambdas['summary'].function_arn
-        }
-        
-        for placeholder, arn in replacements.items():
-            step_function_definition = step_function_definition.replace(placeholder, arn)
-
-        # Create Step Function
-        state_machine = sfn.StateMachine(self, f"OuraSyncStateMachine{suffix}",
-            definition_body=sfn.DefinitionBody.from_string(step_function_definition),
-            timeout=Duration.minutes(15),
-            logs=sfn.LogOptions(
-                destination=logs.LogGroup(self, f"OuraSyncLogGroup{suffix}"),
-                level=sfn.LogLevel.ALL
-            )
-        )
-
-        # Grant Step Function permissions to invoke Lambda functions
-        for lambda_func in lambdas.values():
-            lambda_func.grant_invoke(state_machine)
-        
-        return state_machine
-
-    def _setup_oura_schedule(self, suffix: str, state_machine: sfn.StateMachine):
-        """Set up daily trigger for Oura sync"""
-        
-        # Daily trigger for Oura sync at noon PST (8 PM UTC)
-        daily_oura_sync_rule = events.Rule(self, f"OuraDailySyncRule{suffix}",
-            schedule=events.Schedule.cron(minute="0", hour="20", day="*", month="*", year="*")
-        )
-
-        # Add Step Function as target
-        daily_oura_sync_rule.add_target(targets.SfnStateMachine(state_machine))

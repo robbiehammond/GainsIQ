@@ -17,14 +17,19 @@ import (
 	"github.com/google/uuid"
 )
 
-func getExercisesFromDB() ([]string, error) {
+func getExercisesFromDB(userID string) ([]string, error) {
 	var exercises []string
-	scanInput := &dynamodb.ScanInput{
-		TableName: aws.String(exercisesTableName),
+	queryInput := &dynamodb.QueryInput{
+		TableName:              aws.String(exercisesTableName),
+		IndexName:              aws.String("UserExercisesIndex"),
+		KeyConditionExpression: aws.String("userId = :userId"),
+		ExpressionAttributeValues: map[string]types.AttributeValue{
+			":userId": &types.AttributeValueMemberS{Value: userID},
+		},
 	}
-	result, err := ddbClient.Scan(context.TODO(), scanInput)
+	result, err := ddbClient.Query(context.TODO(), queryInput)
 	if err != nil {
-		return nil, fmt.Errorf("failed to scan DynamoDB table %s: %w", exercisesTableName, err)
+		return nil, fmt.Errorf("failed to query DynamoDB table %s: %w", exercisesTableName, err)
 	}
 	for _, itemMap := range result.Items {
 		var ex ExerciseItem
@@ -38,9 +43,10 @@ func getExercisesFromDB() ([]string, error) {
 	return exercises, nil
 }
 
-func addExerciseToDB(exerciseName string) error {
+func addExerciseToDB(userID, exerciseName string) error {
 	item := map[string]types.AttributeValue{
 		"exerciseName": &types.AttributeValueMemberS{Value: exerciseName},
+		"userId":       &types.AttributeValueMemberS{Value: userID},
 	}
 	_, err := ddbClient.PutItem(context.TODO(), &dynamodb.PutItemInput{
 		TableName: aws.String(exercisesTableName),

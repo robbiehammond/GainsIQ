@@ -12,25 +12,49 @@ import (
 )
 
 func handler(ctx context.Context, req events.APIGatewayProxyRequest) (events.APIGatewayProxyResponse, error) {
-	apiKey := "unknown"
-	if headerValue, ok := req.Headers["x-api-key"]; ok {
-		apiKey = headerValue
-	}
-
-	user, ok := getUserForAPIKey(apiKey)
-	if !ok {
-		log.Printf("Unauthorized: Invalid API key provided: %s", apiKey)
-		return respond(401, map[string]string{"error": "Unauthorized: Invalid API key"})
-	}
-	log.Printf("Request from user: %s for %s %s", user, req.HTTPMethod, req.Path)
-
 	path := req.Path
 	method := req.HTTPMethod
+
+	// Authentication routes that don't require JWT validation
+	switch {
+	case method == "POST" && path == "/auth/register":
+		return handleRegister(req)
+	case method == "POST" && path == "/auth/login":
+		return handleLogin(req)
+	case method == "POST" && path == "/auth/refresh":
+		return handleRefreshToken(req)
+	}
+
+	// All other routes require authentication
+	// Extract Bearer token from Authorization header
+	authHeader := req.Headers["Authorization"]
+	if authHeader == "" {
+		authHeader = req.Headers["authorization"] // Try lowercase
+	}
+	
+	if authHeader == "" {
+		log.Printf("Unauthorized: No Authorization header provided")
+		return respond(401, map[string]string{"error": "Unauthorized: No Authorization header"})
+	}
+
+	token, err := extractBearerToken(authHeader)
+	if err != nil {
+		log.Printf("Unauthorized: Invalid Authorization header format: %v", err)
+		return respond(401, map[string]string{"error": "Unauthorized: Invalid Authorization header format"})
+	}
+
+	userID, err := extractUserIDFromJWT(token, cognitoRegion, cognitoUserPoolID)
+	if err != nil {
+		log.Printf("Unauthorized: Invalid JWT token: %v", err)
+		return respond(401, map[string]string{"error": "Unauthorized: Invalid JWT token"})
+	}
+	
+	log.Printf("Request from user: %s for %s %s", userID, req.HTTPMethod, req.Path)
 
 	switch {
 	// === Exercises ===
 	case method == "GET" && path == "/exercises":
-		exercisesList, err := getExercisesFromDB()
+		exercisesList, err := getExercisesFromDB(userID)
 		if err != nil {
 			log.Printf("Error getting exercises: %v", err)
 			return respond(500, map[string]string{"error": fmt.Sprintf("Error fetching exercises: %v", err)})
@@ -45,7 +69,7 @@ func handler(ctx context.Context, req events.APIGatewayProxyRequest) (events.API
 		if body.ExerciseName == "" {
 			return respond(400, map[string]string{"error": "exercise_name is required"})
 		}
-		if err := addExerciseToDB(body.ExerciseName); err != nil {
+		if err := addExerciseToDB(userID, body.ExerciseName); err != nil {
 			log.Printf("Error adding exercise '%s': %v", body.ExerciseName, err)
 			return respond(500, map[string]string{"error": fmt.Sprintf("Error adding exercise: %v", err)})
 		}
@@ -253,4 +277,89 @@ func handler(ctx context.Context, req events.APIGatewayProxyRequest) (events.API
 		log.Printf("Route not found for %s %s", method, path)
 		return respond(404, map[string]string{"error": "Route not found"})
 	}
+}
+
+func handleRegister(req events.APIGatewayProxyRequest) (events.APIGatewayProxyResponse, error) {
+	var body RegisterRequest
+	if err := json.Unmarshal([]byte(req.Body), &body); err != nil {
+		return respond(400, map[string]string{"error": fmt.Sprintf("Invalid request: %v", err)})
+	}
+
+	// Validate required fields (only username and password are required)
+	if body.Username == "" || body.Password == "" {
+		return respond(400, map[string]string{"error": "username and password are required"})
+	}
+
+	// Register user with Cognito
+	if err := registerUser(body.Username, body.Password, body.Email, body.GivenName, body.FamilyName); err != nil {
+		log.Printf("Error registering user '%s': %v", body.Username, err)
+		return respond(500, map[string]string{"error": fmt.Sprintf("Error registering user: %v", err)})
+	}
+
+	// Create user profile in DynamoDB
+	if err := createUserProfile(body.Username, body.Email, body.GivenName, body.FamilyName); err != nil {
+		log.Printf("Error creating user profile for '%s': %v", body.Username, err)
+		// Note: We don't return an error here as the user was successfully created in Cognito
+		log.Printf("User '%s' registered in Cognito but profile creation failed", body.Username)
+	}
+
+	return respond(201, map[string]string{"message": "User registered successfully"})
+}
+
+func handleLogin(req events.APIGatewayProxyRequest) (events.APIGatewayProxyResponse, error) {
+	var body LoginRequest
+	if err := json.Unmarshal([]byte(req.Body), &body); err != nil {
+		return respond(400, map[string]string{"error": fmt.Sprintf("Invalid request: %v", err)})
+	}
+
+	if body.Username == "" || body.Password == "" {
+		return respond(400, map[string]string{"error": "username and password are required"})
+	}
+
+	authResult, err := loginUser(body.Username, body.Password)
+	if err != nil {
+		log.Printf("Login failed for user '%s': %v", body.Username, err)
+		return respond(401, map[string]string{"error": "Invalid credentials"})
+	}
+
+	response := AuthResponse{
+		AccessToken:  *authResult.AccessToken,
+		IdToken:      *authResult.IdToken,
+		RefreshToken: *authResult.RefreshToken,
+		ExpiresIn:    authResult.ExpiresIn,
+		TokenType:    *authResult.TokenType,
+	}
+
+	return respond(200, response)
+}
+
+func handleRefreshToken(req events.APIGatewayProxyRequest) (events.APIGatewayProxyResponse, error) {
+	var body RefreshTokenRequest
+	if err := json.Unmarshal([]byte(req.Body), &body); err != nil {
+		return respond(400, map[string]string{"error": fmt.Sprintf("Invalid request: %v", err)})
+	}
+
+	if body.RefreshToken == "" {
+		return respond(400, map[string]string{"error": "refresh_token is required"})
+	}
+
+	authResult, err := refreshToken(body.RefreshToken)
+	if err != nil {
+		log.Printf("Token refresh failed: %v", err)
+		return respond(401, map[string]string{"error": "Invalid refresh token"})
+	}
+
+	response := AuthResponse{
+		AccessToken: *authResult.AccessToken,
+		IdToken:     *authResult.IdToken,
+		ExpiresIn:   authResult.ExpiresIn,
+		TokenType:   *authResult.TokenType,
+	}
+
+	// Refresh token is not always returned in refresh operations
+	if authResult.RefreshToken != nil {
+		response.RefreshToken = *authResult.RefreshToken
+	}
+
+	return respond(200, response)
 }

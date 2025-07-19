@@ -40,6 +40,7 @@ type WeightTrendResponse struct {
 
 type ExerciseItem struct {
 	ExerciseName string `dynamodbav:"exerciseName"`
+	UserID       string `dynamodbav:"userId"`
 }
 
 type SetItem struct {
@@ -50,6 +51,7 @@ type SetItem struct {
 	Sets             int32   `dynamodbav:"sets"`
 	Weight           float32 `dynamodbav:"weight"`
 	WeightModulation string  `dynamodbav:"weight_modulation,omitempty"`
+	UserID           string  `dynamodbav:"userId"`
 }
 
 type SetOutputItem map[string]string
@@ -57,6 +59,7 @@ type SetOutputItem map[string]string
 type WeightItem struct {
 	Timestamp int64   `dynamodbav:"timestamp"`
 	Weight    float32 `dynamodbav:"weight"`
+	UserID    string  `dynamodbav:"userId"`
 }
 
 type WeightOutputItem map[string]string
@@ -64,4 +67,39 @@ type WeightOutputItem map[string]string
 type AnalysisItem struct {
 	Timestamp int64  `dynamodbav:"timestamp"`
 	Analysis  string `dynamodbav:"analysis"`
+	UserID    string `dynamodbav:"userId"`
+}
+
+type RegisterRequest struct {
+	Username   string  `json:"username"`
+	Email      *string `json:"email,omitempty"`
+	Password   string  `json:"password"`
+	GivenName  *string `json:"given_name,omitempty"`
+	FamilyName *string `json:"family_name,omitempty"`
+}
+
+type LoginRequest struct {
+	Username string `json:"username"`
+	Password string `json:"password"`
+}
+
+type RefreshTokenRequest struct {
+	RefreshToken string `json:"refresh_token"`
+}
+
+type AuthResponse struct {
+	AccessToken  string `json:"access_token"`
+	IdToken      string `json:"id_token"`
+	RefreshToken string `json:"refresh_token"`
+	ExpiresIn    int32  `json:"expires_in"`
+	TokenType    string `json:"token_type"`
+}
+
+type UserProfileItem struct {
+	UserID     string  `dynamodbav:"userId"`
+	Email      *string `dynamodbav:"email,omitempty"`
+	GivenName  *string `dynamodbav:"givenName,omitempty"`
+	FamilyName *string `dynamodbav:"familyName,omitempty"`
+	CreatedAt  int64   `dynamodbav:"createdAt"`
+	UpdatedAt  int64   `dynamodbav:"updatedAt"`
 }
