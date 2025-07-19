@@ -95,7 +95,7 @@ func handler(ctx context.Context, req events.APIGatewayProxyRequest) (events.API
 		if err := json.Unmarshal([]byte(req.Body), &body); err != nil {
 			return respond(400, map[string]string{"error": fmt.Sprintf("Invalid request: %v", err)})
 		}
-		if err := logSetToDB(body); err != nil {
+		if err := logSetToDB(userID, body); err != nil {
 			log.Printf("Error logging set for exercise '%s': %v", body.Exercise, err)
 			return respond(500, map[string]string{"error": fmt.Sprintf("Error logging set: %v", err)})
 		}
@@ -208,7 +208,7 @@ func handler(ctx context.Context, req events.APIGatewayProxyRequest) (events.API
 		if err := json.Unmarshal([]byte(req.Body), &body); err != nil {
 			return respond(400, map[string]string{"error": fmt.Sprintf("Invalid request: %v", err)})
 		}
-		if err := logWeightToDB(body.Weight); err != nil {
+		if err := logWeightToDB(userID, body.Weight); err != nil {
 			log.Printf("Error logging weight %f: %v", body.Weight, err)
 			return respond(500, map[string]string{"error": fmt.Sprintf("Error logging weight: %v", err)})
 		}

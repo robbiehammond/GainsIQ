@@ -72,11 +72,12 @@ func deleteExerciseFromDB(exerciseName string) error {
 	return nil
 }
 
-func logWeightToDB(weightValue float32) error {
+func logWeightToDB(userID string, weightValue float32) error {
 	timestamp := time.Now().Unix()
 	item := WeightItem{
 		Timestamp: timestamp,
 		Weight:    weightValue,
+		UserID:    userID,
 	}
 	av, err := attributevalue.MarshalMap(item)
 	if err != nil {
@@ -287,7 +288,7 @@ func getLastMonthSetsFromDB() ([]SetOutputItem, error) {
 	return outputItems, nil
 }
 
-func logSetToDB(req LogSetRequest) error {
+func logSetToDB(userID string, req LogSetRequest) error {
 	var modulation string
 	if req.IsCutting != nil && *req.IsCutting {
 		modulation = "Cutting"
@@ -310,6 +311,7 @@ func logSetToDB(req LogSetRequest) error {
 		Sets:             int32(setNumber),
 		Weight:           req.Weight,
 		WeightModulation: modulation,
+		UserID:           userID,
 	}
 
 	av, err := attributevalue.MarshalMap(item)
