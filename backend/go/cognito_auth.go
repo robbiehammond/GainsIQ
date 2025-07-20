@@ -2,9 +2,6 @@ package main
 
 import (
 	"context"
-	"crypto/rand"
-	"crypto/sha256"
-	"encoding/base64"
 	"fmt"
 	"log"
 	"time"
@@ -27,51 +24,6 @@ func initCognitoClient() {
 	cognitoClient = cognitoidentityprovider.NewFromConfig(cfg)
 }
 
-func computeSecretHash(username, clientID, clientSecret string) string {
-	message := username + clientID
-	h := sha256.New()
-	h.Write([]byte(message))
-	return base64.StdEncoding.EncodeToString(h.Sum(nil))
-}
-
-func generateRandomPassword() (string, error) {
-	length := 12
-	// Character sets
-	uppercase := "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
-	lowercase := "abcdefghijklmnopqrstuvwxyz"
-	numbers := "0123456789"
-	symbols := "!@#$%^&*"
-	
-	// Ensure at least one character from each required set
-	password := make([]byte, length)
-	
-	// Get random bytes
-	randomBytes := make([]byte, length)
-	if _, err := rand.Read(randomBytes); err != nil {
-		return "", fmt.Errorf("failed to generate random bytes: %w", err)
-	}
-	
-	// Guarantee at least one from each character set
-	password[0] = uppercase[int(randomBytes[0])%len(uppercase)]
-	password[1] = lowercase[int(randomBytes[1])%len(lowercase)]
-	password[2] = numbers[int(randomBytes[2])%len(numbers)]
-	password[3] = symbols[int(randomBytes[3])%len(symbols)]
-	
-	// Fill the rest with random characters from all sets
-	allChars := uppercase + lowercase + numbers + symbols
-	for i := 4; i < length; i++ {
-		password[i] = allChars[int(randomBytes[i])%len(allChars)]
-	}
-	
-	// Shuffle the password to avoid predictable patterns
-	for i := range password {
-		j := int(randomBytes[i]) % len(password)
-		password[i], password[j] = password[j], password[i]
-	}
-	
-	return string(password), nil
-}
-
 func registerUser(username, password string, email, givenName, familyName *string) error {
 	if cognitoClient == nil {
 		initCognitoClient()
@@ -79,7 +31,7 @@ func registerUser(username, password string, email, givenName, familyName *strin
 
 	// Build user attributes dynamically based on provided fields
 	var userAttributes []types.AttributeType
-	
+
 	if email != nil && *email != "" {
 		userAttributes = append(userAttributes, types.AttributeType{
 			Name:  aws.String("email"),
@@ -91,14 +43,14 @@ func registerUser(username, password string, email, givenName, familyName *strin
 			Value: aws.String("true"),
 		})
 	}
-	
+
 	if givenName != nil && *givenName != "" {
 		userAttributes = append(userAttributes, types.AttributeType{
 			Name:  aws.String("given_name"),
 			Value: aws.String(*givenName),
 		})
 	}
-	
+
 	if familyName != nil && *familyName != "" {
 		userAttributes = append(userAttributes, types.AttributeType{
 			Name:  aws.String("family_name"),
@@ -204,16 +156,16 @@ func createUserProfile(userID string, email, givenName, familyName *string) erro
 		"createdAt": &dynamodbTypes.AttributeValueMemberN{Value: fmt.Sprintf("%d", timestamp)},
 		"updatedAt": &dynamodbTypes.AttributeValueMemberN{Value: fmt.Sprintf("%d", timestamp)},
 	}
-	
+
 	// Add optional fields only if provided
 	if email != nil && *email != "" {
 		item["email"] = &dynamodbTypes.AttributeValueMemberS{Value: *email}
 	}
-	
+
 	if givenName != nil && *givenName != "" {
 		item["givenName"] = &dynamodbTypes.AttributeValueMemberS{Value: *givenName}
 	}
-	
+
 	if familyName != nil && *familyName != "" {
 		item["familyName"] = &dynamodbTypes.AttributeValueMemberS{Value: *familyName}
 	}
