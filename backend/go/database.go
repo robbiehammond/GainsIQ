@@ -296,16 +296,23 @@ func logSetToDB(userID string, req LogSetRequest) error {
 		modulation = "Bulking"
 	}
 
+	// Use provided timestamp if available, otherwise use current time
+	var timestamp int64
+	if req.Timestamp != nil {
+		timestamp = *req.Timestamp
+	} else {
+		timestamp = time.Now().Unix()
+	}
+
 	// Calculate set number based on same-day exercises
-	currentTimestamp := time.Now().Unix()
-	setNumber, err := calculateSetNumber(req.Exercise, currentTimestamp)
+	setNumber, err := calculateSetNumber(req.Exercise, timestamp)
 	if err != nil {
 		return fmt.Errorf("failed to calculate set number: %w", err)
 	}
 
 	item := SetItem{
 		WorkoutID:        uuid.NewString(),
-		Timestamp:        currentTimestamp,
+		Timestamp:        timestamp,
 		Exercise:         req.Exercise,
 		Reps:             req.Reps,
 		Sets:             int32(setNumber),

@@ -222,6 +222,7 @@ func TestLogSetRequestStruct(t *testing.T) {
 				Sets:      3,
 				Weight:    185.5,
 				IsCutting: boolPtr(true),
+				Timestamp: nil,
 			},
 			shouldError: false,
 		},
@@ -234,6 +235,7 @@ func TestLogSetRequestStruct(t *testing.T) {
 				Sets:      4,
 				Weight:    225.0,
 				IsCutting: boolPtr(false),
+				Timestamp: nil,
 			},
 			shouldError: false,
 		},
@@ -246,6 +248,33 @@ func TestLogSetRequestStruct(t *testing.T) {
 				Sets:      1,
 				Weight:    315.0,
 				IsCutting: nil,
+				Timestamp: nil,
+			},
+			shouldError: false,
+		},
+		{
+			name:    "request with timestamp",
+			jsonStr: `{"exercise":"overhead press","reps":"8","sets":3,"weight":135.0,"isCutting":true,"timestamp":1609459200}`,
+			expected: LogSetRequest{
+				Exercise:  "overhead press",
+				Reps:      "8",
+				Sets:      3,
+				Weight:    135.0,
+				IsCutting: boolPtr(true),
+				Timestamp: int64Ptr(1609459200),
+			},
+			shouldError: false,
+		},
+		{
+			name:    "request with timestamp but no cutting info",
+			jsonStr: `{"exercise":"pull ups","reps":"12","sets":3,"weight":0.0,"timestamp":1609459200}`,
+			expected: LogSetRequest{
+				Exercise:  "pull ups",
+				Reps:      "12",
+				Sets:      3,
+				Weight:    0.0,
+				IsCutting: nil,
+				Timestamp: int64Ptr(1609459200),
 			},
 			shouldError: false,
 		},
@@ -282,6 +311,11 @@ func TestLogSetRequestStruct(t *testing.T) {
 					t.Errorf("IsCutting null mismatch: got %v, want %v", req.IsCutting, tt.expected.IsCutting)
 				} else if req.IsCutting != nil && tt.expected.IsCutting != nil && *req.IsCutting != *tt.expected.IsCutting {
 					t.Errorf("IsCutting = %v, want %v", *req.IsCutting, *tt.expected.IsCutting)
+				}
+				if (req.Timestamp == nil) != (tt.expected.Timestamp == nil) {
+					t.Errorf("Timestamp null mismatch: got %v, want %v", req.Timestamp, tt.expected.Timestamp)
+				} else if req.Timestamp != nil && tt.expected.Timestamp != nil && *req.Timestamp != *tt.expected.Timestamp {
+					t.Errorf("Timestamp = %v, want %v", *req.Timestamp, *tt.expected.Timestamp)
 				}
 			}
 		})
@@ -567,6 +601,10 @@ func intPtr(i int) *int {
 
 func float32Ptr(f float32) *float32 {
 	return &f
+}
+
+func int64Ptr(i int64) *int64 {
+	return &i
 }
 
 func stringPtrEqual(a, b *string) bool {

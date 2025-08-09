@@ -14,6 +14,7 @@ type LogSetRequest struct {
 	Sets      int     `json:"sets"`
 	Weight    float32 `json:"weight"`
 	IsCutting *bool   `json:"isCutting"`
+	Timestamp *int64  `json:"timestamp,omitempty"`
 }
 
 type EditSetRequest struct {
