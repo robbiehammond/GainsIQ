@@ -15,39 +15,55 @@ func handler(ctx context.Context, req events.APIGatewayProxyRequest) (events.API
 	path := req.Path
 	method := req.HTTPMethod
 
+	// Add comprehensive logging at the start of every request
+	log.Printf("=== INCOMING REQUEST ===")
+	log.Printf("Method: %s, Path: %s", method, path)
+	log.Printf("Headers: %+v", req.Headers)
+	log.Printf("Body: %s", req.Body)
+	log.Printf("QueryStringParameters: %+v", req.QueryStringParameters)
+
 	// User creation endpoint doesn't require authentication
 	if method == "POST" && path == "/users/create" {
+		log.Printf("Handling user creation request")
 		return handleCreateUser(req)
 	}
 
 	// All other routes require API key authentication
+	log.Printf("Starting authentication process...")
+
 	// Extract API key from Authorization header
 	authHeader := req.Headers["Authorization"]
 	if authHeader == "" {
 		authHeader = req.Headers["authorization"] // Try lowercase
 	}
 
+	log.Printf("Authorization header: %s", authHeader)
+
 	if authHeader == "" {
 		log.Printf("Unauthorized: No Authorization header provided")
 		return respond(401, map[string]string{"error": "Unauthorized: No Authorization header"})
 	}
 
+	log.Printf("Calling authenticateRequest...")
 	userID, err := authenticateRequest(authHeader)
 	if err != nil {
-		log.Printf("Unauthorized: %v", err)
+		log.Printf("Authentication failed: %v", err)
 		return respond(401, map[string]string{"error": fmt.Sprintf("Unauthorized: %v", err)})
 	}
 
-	log.Printf("Request from user: %s for %s %s", userID, req.HTTPMethod, req.Path)
+	log.Printf("Authentication successful for user: %s", userID)
+	log.Printf("Proceeding to route handler for %s %s", req.HTTPMethod, req.Path)
 
 	switch {
 	// === Exercises ===
 	case method == "GET" && path == "/exercises":
+		log.Printf("Handling GET /exercises for user: %s", userID)
 		exercisesList, err := getExercisesFromDB(userID)
 		if err != nil {
-			log.Printf("Error getting exercises: %v", err)
+			log.Printf("Error getting exercises from DB: %v", err)
 			return respond(500, map[string]string{"error": fmt.Sprintf("Error fetching exercises: %v", err)})
 		}
+		log.Printf("Successfully retrieved %d exercises", len(exercisesList))
 		return respond(200, exercisesList)
 
 	case method == "POST" && path == "/exercises":

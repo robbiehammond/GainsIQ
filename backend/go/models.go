@@ -45,7 +45,7 @@ type WeightTrendResponse struct {
 
 type ExerciseItem struct {
 	ExerciseName string `dynamodbav:"exerciseName"`
-	UserID       string `dynamodbav:"userId"`
+	Username     string `dynamodbav:"username"`
 }
 
 type SetItem struct {
@@ -56,7 +56,7 @@ type SetItem struct {
 	Sets             int32   `dynamodbav:"sets"`
 	Weight           float32 `dynamodbav:"weight"`
 	WeightModulation string  `dynamodbav:"weight_modulation,omitempty"`
-	UserID           string  `dynamodbav:"userId"`
+	Username         string  `dynamodbav:"username"`
 }
 
 type SetOutputItem map[string]string
@@ -64,7 +64,7 @@ type SetOutputItem map[string]string
 type WeightItem struct {
 	Timestamp int64   `dynamodbav:"timestamp"`
 	Weight    float32 `dynamodbav:"weight"`
-	UserID    string  `dynamodbav:"userId"`
+	Username  string  `dynamodbav:"username"`
 }
 
 type WeightOutputItem map[string]string
@@ -72,7 +72,7 @@ type WeightOutputItem map[string]string
 type AnalysisItem struct {
 	Timestamp int64  `dynamodbav:"timestamp"`
 	Analysis  string `dynamodbav:"analysis"`
-	UserID    string `dynamodbav:"userId"`
+	Username  string `dynamodbav:"username"`
 }
 
 

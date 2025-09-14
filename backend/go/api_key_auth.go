@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"log"
 	"strings"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
@@ -25,27 +26,33 @@ func extractApiKeyFromHeader(authHeader string) (string, error) {
 }
 
 func validateApiKeyAndGetUserId(apiKey string) (string, error) {
+	log.Printf("validateApiKeyAndGetUserId called with apiKey: %s", apiKey)
+
 	if apiKey == "" {
+		log.Printf("API key is empty")
 		return "", fmt.Errorf("API key cannot be empty")
 	}
 
 	// Scan the users table to find the user with this API key
+	log.Printf("Starting DynamoDB scan on table: %s", usersTableName)
 	scanInput := &dynamodb.ScanInput{
 		TableName:        aws.String(usersTableName),
-		FilterExpression: aws.String("apiKey = :apiKey AND isActive = :isActive"),
+		FilterExpression: aws.String("apiKey = :apiKey"),
 		ExpressionAttributeValues: map[string]types.AttributeValue{
-			":apiKey":    &types.AttributeValueMemberS{Value: apiKey},
-			":isActive":  &types.AttributeValueMemberBOOL{Value: true},
+			":apiKey": &types.AttributeValueMemberS{Value: apiKey},
 		},
 	}
 
 	result, err := ddbClient.Scan(context.TODO(), scanInput)
 	if err != nil {
+		log.Printf("DynamoDB scan failed: %v", err)
 		return "", fmt.Errorf("failed to scan users table: %w", err)
 	}
 
+	log.Printf("DynamoDB scan completed. Found %d items", len(result.Items))
+
 	if len(result.Items) == 0 {
-		return "", fmt.Errorf("invalid or inactive API key")
+		return "", fmt.Errorf("invalid API key")
 	}
 
 	if len(result.Items) > 1 {
@@ -55,6 +62,11 @@ func validateApiKeyAndGetUserId(apiKey string) (string, error) {
 	var userItem UserItem
 	if err := attributevalue.UnmarshalMap(result.Items[0], &userItem); err != nil {
 		return "", fmt.Errorf("failed to unmarshal user item: %w", err)
+	}
+
+	// Check if user is active (simplified check without DynamoDB filter)
+	if !userItem.IsActive {
+		return "", fmt.Errorf("user account is inactive")
 	}
 
 	return userItem.Username, nil

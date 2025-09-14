@@ -17,20 +17,27 @@ import (
 	"github.com/google/uuid"
 )
 
-func getExercisesFromDB(userID string) ([]string, error) {
+func getExercisesFromDB(username string) ([]string, error) {
+	log.Printf("getExercisesFromDB called for username: %s", username)
+
 	var exercises []string
 	queryInput := &dynamodb.QueryInput{
 		TableName:              aws.String(exercisesTableName),
-		IndexName:              aws.String("UserExercisesIndex"),
-		KeyConditionExpression: aws.String("userId = :userId"),
+		IndexName:              aws.String("UsernameExercisesIndex"),
+		KeyConditionExpression: aws.String("username = :username"),
 		ExpressionAttributeValues: map[string]types.AttributeValue{
-			":userId": &types.AttributeValueMemberS{Value: userID},
+			":username": &types.AttributeValueMemberS{Value: username},
 		},
 	}
+
+	log.Printf("Executing DynamoDB query on table: %s, index: %s", exercisesTableName, "UsernameExercisesIndex")
 	result, err := ddbClient.Query(context.TODO(), queryInput)
 	if err != nil {
+		log.Printf("DynamoDB query failed: %v", err)
 		return nil, fmt.Errorf("failed to query DynamoDB table %s: %w", exercisesTableName, err)
 	}
+
+	log.Printf("Query returned %d items", len(result.Items))
 	for _, itemMap := range result.Items {
 		var ex ExerciseItem
 		if err = attributevalue.UnmarshalMap(itemMap, &ex); err != nil {
@@ -43,10 +50,10 @@ func getExercisesFromDB(userID string) ([]string, error) {
 	return exercises, nil
 }
 
-func addExerciseToDB(userID, exerciseName string) error {
+func addExerciseToDB(username, exerciseName string) error {
 	item := map[string]types.AttributeValue{
 		"exerciseName": &types.AttributeValueMemberS{Value: exerciseName},
-		"userId":       &types.AttributeValueMemberS{Value: userID},
+		"username":     &types.AttributeValueMemberS{Value: username},
 	}
 	_, err := ddbClient.PutItem(context.TODO(), &dynamodb.PutItemInput{
 		TableName: aws.String(exercisesTableName),
@@ -77,7 +84,7 @@ func logWeightToDB(userID string, weightValue float32) error {
 	item := WeightItem{
 		Timestamp: timestamp,
 		Weight:    weightValue,
-		UserID:    userID,
+		Username:  userID,
 	}
 	av, err := attributevalue.MarshalMap(item)
 	if err != nil {
@@ -462,7 +469,7 @@ func logSetToDB(userID string, req LogSetRequest) error {
 		Sets:             int32(setNumber),
 		Weight:           req.Weight,
 		WeightModulation: modulation,
-		UserID:           userID,
+		Username:         userID,
 	}
 
 	av, err := attributevalue.MarshalMap(item)
@@ -527,7 +534,7 @@ func batchLogSetsToDB(userID string, requests []LogSetRequest) error {
 			Sets:             int32(setNumber),
 			Weight:           req.Weight,
 			WeightModulation: modulation,
-			UserID:           userID,
+			Username:         userID,
 		}
 
 		av, err := attributevalue.MarshalMap(item)

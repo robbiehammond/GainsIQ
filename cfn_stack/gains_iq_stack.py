@@ -58,10 +58,18 @@ class GainsIQStack(Stack):
                                              name="exerciseName", type=dynamodb.AttributeType.STRING),
                                          billing_mode=dynamodb.BillingMode.PAY_PER_REQUEST)
         
-        # Add GSI for user-based exercise queries
+        # Add GSI for user-based exercise queries (original - keep for existing data)
         exercises_table.add_global_secondary_index(
             index_name="UserExercisesIndex",
             partition_key=dynamodb.Attribute(name="userId", type=dynamodb.AttributeType.STRING),
+            sort_key=dynamodb.Attribute(name="exerciseName", type=dynamodb.AttributeType.STRING),
+            projection_type=dynamodb.ProjectionType.ALL
+        )
+
+        # Add new GSI for username-based exercise queries
+        exercises_table.add_global_secondary_index(
+            index_name="UsernameExercisesIndex",
+            partition_key=dynamodb.Attribute(name="username", type=dynamodb.AttributeType.STRING),
             sort_key=dynamodb.Attribute(name="exerciseName", type=dynamodb.AttributeType.STRING),
             projection_type=dynamodb.ProjectionType.ALL
         )
@@ -190,24 +198,22 @@ class GainsIQStack(Stack):
         log_group = logs.LogGroup(self, f"GainsIQApiLogs{suffix}",
                               retention=logs.RetentionDays.ONE_WEEK)
 
-        # Use LambdaRestApi instead of manually creating routes to avoid policy size limits
-        api = apigateway.LambdaRestApi(self, f"GainsIQAPI{suffix}",
-                                      handler=backend_lambda,
-                                      rest_api_name=f"GainsIQ API {env_name}",
-                                      description=f"API for GainsIQ workout tracker ({env_name}).",
-                                      deploy_options=apigateway.StageOptions(
-                                          logging_level=apigateway.MethodLoggingLevel.INFO,
-                                          data_trace_enabled=True,
-                                          metrics_enabled=True,
-                                          access_log_destination=apigateway.LogGroupLogDestination(log_group),
-                                      ),
-                                      default_cors_preflight_options={
-                                          "allow_origins": Cors.ALL_ORIGINS,
-                                          "allow_methods": Cors.ALL_METHODS
-                                      },
-                                      cloud_watch_role=True,
-                                      proxy=True
-                                      )
+        # Create RestApi with explicit routes instead of LambdaRestApi to ensure proper routing
+        api = apigateway.RestApi(self, f"GainsIQAPI{suffix}",
+                         rest_api_name=f"GainsIQ API {env_name}",
+                         description=f"API for GainsIQ workout tracker ({env_name}).",
+                         deploy_options=apigateway.StageOptions(
+                             logging_level=apigateway.MethodLoggingLevel.INFO,
+                             data_trace_enabled=True,
+                             metrics_enabled=True,
+                             access_log_destination=apigateway.LogGroupLogDestination(log_group),
+                         ),
+                         default_cors_preflight_options={
+                             "allow_origins": Cors.ALL_ORIGINS,
+                             "allow_methods": Cors.ALL_METHODS
+                         },
+                         cloud_watch_role=True
+                         )
 
         usage_plan = api.add_usage_plan(f"GainsIQUsagePlan{suffix}",
                                 name=f"GainsIQUsagePlan{suffix}",
@@ -219,6 +225,61 @@ class GainsIQStack(Stack):
         usage_plan.add_api_stage(
             stage=api.deployment_stage
         )
+
+        # Define all routes explicitly
+        # User creation (no auth required)
+        users = api.root.add_resource("users")
+        create_user = users.add_resource("create")
+        create_user.add_method("POST", apigateway.LambdaIntegration(backend_lambda, proxy=True))
+
+        # Exercises endpoints
+        exercises = api.root.add_resource("exercises")
+        exercises.add_method("GET", apigateway.LambdaIntegration(backend_lambda, proxy=True))
+        exercises.add_method("POST", apigateway.LambdaIntegration(backend_lambda, proxy=True))
+        exercises.add_method("DELETE", apigateway.LambdaIntegration(backend_lambda, proxy=True))
+
+        # Sets endpoints
+        sets = api.root.add_resource("sets")
+        sets.add_method("GET", apigateway.LambdaIntegration(backend_lambda, proxy=True))
+        sets.add_method("DELETE", apigateway.LambdaIntegration(backend_lambda, proxy=True))
+
+        sets_log = sets.add_resource("log")
+        sets_log.add_method("POST", apigateway.LambdaIntegration(backend_lambda, proxy=True))
+
+        sets_batch = sets.add_resource("batch")
+        sets_batch.add_method("POST", apigateway.LambdaIntegration(backend_lambda, proxy=True))
+
+        sets_pop = sets.add_resource("pop")
+        sets_pop.add_method("POST", apigateway.LambdaIntegration(backend_lambda, proxy=True))
+
+        sets_last_month = sets.add_resource("last_month")
+        sets_last_month.add_method("GET", apigateway.LambdaIntegration(backend_lambda, proxy=True))
+
+        sets_edit = sets.add_resource("edit")
+        sets_edit.add_method("PUT", apigateway.LambdaIntegration(backend_lambda, proxy=True))
+
+        sets_by_exercise = sets.add_resource("by_exercise")
+        sets_by_exercise.add_method("GET", apigateway.LambdaIntegration(backend_lambda, proxy=True))
+
+        # Weight endpoints
+        weight = api.root.add_resource("weight")
+        weight.add_method("GET", apigateway.LambdaIntegration(backend_lambda, proxy=True))
+        weight.add_method("POST", apigateway.LambdaIntegration(backend_lambda, proxy=True))
+        weight.add_method("DELETE", apigateway.LambdaIntegration(backend_lambda, proxy=True))
+
+        weight_trend = weight.add_resource("trend")
+        weight_trend.add_method("GET", apigateway.LambdaIntegration(backend_lambda, proxy=True))
+
+        # Analysis endpoints
+        analysis = api.root.add_resource("analysis")
+        analysis.add_method("GET", apigateway.LambdaIntegration(backend_lambda, proxy=True))
+        analysis.add_method("POST", apigateway.LambdaIntegration(backend_lambda, proxy=True))
+
+        # Analytics endpoints
+        analytics = api.root.add_resource("analytics")
+        analytics_volume = analytics.add_resource("volume")
+        analytics_bodypart = analytics_volume.add_resource("bodypart")
+        analytics_bodypart.add_method("GET", apigateway.LambdaIntegration(backend_lambda, proxy=True))
 
         monthly_rule = events.Rule(self, f"GainsIQMonthlyRule{suffix}",
                                    schedule=events.Schedule.cron(minute="0", hour="0", day="1", month="*", year="*"))
