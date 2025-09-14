@@ -19,8 +19,7 @@ from aws_cdk import (
     aws_cloudfront as cloudfront,
     aws_cloudfront_origins as origins,
     aws_stepfunctions as sfn,
-    aws_stepfunctions_tasks as tasks,
-    aws_cognito as cognito
+    aws_stepfunctions_tasks as tasks
 )
 import json
 from constructs import Construct
@@ -36,7 +35,6 @@ class GainsIQStack(Stack):
             email = config.get('email')
             openai_key = config.get('openai_key')
             oura_api_key = config.get('oura_key')
-            api_keys = config.get('api_keys', {})
 
         
         if not email:
@@ -48,67 +46,12 @@ class GainsIQStack(Stack):
         if not oura_api_key:
             raise ValueError("oura_key not set in config file.")
 
-        
-        # Convert the API keys map to a JSON string
-        api_keys_json = json.dumps(api_keys)
 
         is_preprod = env_name == "preprod"
 
         # Append '-preprod' to names if we're in preprod
         suffix = "-preprod" if is_preprod else ""
 
-        # Create Cognito User Pool (New version with optional email)
-        user_pool = cognito.UserPool(self, f"GainsIQUserPoolV2{suffix}",
-            user_pool_name=f"GainsIQUserPoolV2{suffix}",
-            sign_in_aliases=cognito.SignInAliases(username=True),
-            password_policy=cognito.PasswordPolicy(
-                min_length=8,
-                require_lowercase=True,
-                require_uppercase=True,
-                require_digits=True,
-                require_symbols=True
-            ),
-            self_sign_up_enabled=True,
-            standard_attributes=cognito.StandardAttributes(
-                email=cognito.StandardAttribute(required=False, mutable=True),
-                given_name=cognito.StandardAttribute(required=False, mutable=True),
-                family_name=cognito.StandardAttribute(required=False, mutable=True)
-            ),
-            removal_policy=RemovalPolicy.DESTROY
-        )
-
-        # Create User Pool Client
-        user_pool_client = cognito.UserPoolClient(self, f"GainsIQUserPoolClientV2{suffix}",
-            user_pool=user_pool,
-            user_pool_client_name=f"GainsIQUserPoolClient{suffix}",
-            generate_secret=False,
-            auth_flows=cognito.AuthFlow(
-                user_password=True,
-                user_srp=True,
-                admin_user_password=True
-            ),
-            o_auth=cognito.OAuthSettings(
-                flows=cognito.OAuthFlows(authorization_code_grant=True),
-                scopes=[cognito.OAuthScope.OPENID, cognito.OAuthScope.EMAIL, cognito.OAuthScope.PROFILE]
-            ),
-            prevent_user_existence_errors=True,
-            access_token_validity=Duration.hours(1),
-            id_token_validity=Duration.hours(1),
-            refresh_token_validity=Duration.days(30)
-        )
-
-        # Create Identity Pool
-        identity_pool = cognito.CfnIdentityPool(self, f"GainsIQIdentityPoolV2{suffix}",
-            identity_pool_name=f"GainsIQIdentityPool{suffix}",
-            allow_unauthenticated_identities=False,
-            cognito_identity_providers=[
-                cognito.CfnIdentityPool.CognitoIdentityProviderProperty(
-                    client_id=user_pool_client.user_pool_client_id,
-                    provider_name=user_pool.user_pool_provider_name,
-                    server_side_token_check=True
-                )
-            ]
-        )
 
         exercises_table = dynamodb.Table(self, f"ExercisesTable{suffix}",
                                          partition_key=dynamodb.Attribute(
@@ -171,7 +114,7 @@ class GainsIQStack(Stack):
 
         users_table = dynamodb.Table(self, f"UsersTable{suffix}",
                                     partition_key=dynamodb.Attribute(
-                                        name="userId", type=dynamodb.AttributeType.STRING),
+                                        name="username", type=dynamodb.AttributeType.STRING),
                                     billing_mode=dynamodb.BillingMode.PAY_PER_REQUEST,
                                     point_in_time_recovery=True
                                     )
@@ -193,32 +136,7 @@ class GainsIQStack(Stack):
                                    iam.ManagedPolicy.from_aws_managed_policy_name("service-role/AWSLambdaBasicExecutionRole")
                                ])
 
-        # Could do at some point: make a specific roles for the API backend and the processing lambda.
-        lambda_role.add_to_policy(iam.PolicyStatement(
-            effect=iam.Effect.ALLOW,
-            actions=[
-                "dynamodb:BatchGetItem",
-                "dynamodb:BatchWriteItem",
-                "dynamodb:PutItem",
-                "dynamodb:Scan",
-                "dynamodb:Query",
-                "dynamodb:GetItem",
-                "dynamodb:UpdateItem",
-                "dynamodb:DeleteItem"
-            ],
-            resources=[
-                exercises_table.table_arn,
-                sets_table.table_arn,
-                weight_table.table_arn,
-                analyses_table.table_arn,
-                users_table.table_arn,
-                # Add permissions for all GSIs
-                f"{exercises_table.table_arn}/index/*",
-                f"{sets_table.table_arn}/index/*",
-                f"{weight_table.table_arn}/index/*",
-                f"{analyses_table.table_arn}/index/*"
-            ]
-        ))
+        # DynamoDB permissions will be added after all tables are created
 
         lambda_role.add_to_policy(iam.PolicyStatement(
             effect=iam.Effect.ALLOW,
@@ -229,24 +147,6 @@ class GainsIQStack(Stack):
             resources=[processing_lambda_trigger_queue.queue_arn]  
         ))
 
-        lambda_role.add_to_policy(iam.PolicyStatement(
-            effect=iam.Effect.ALLOW,
-            actions=[
-                "cognito-idp:AdminInitiateAuth",
-                "cognito-idp:AdminCreateUser",
-                "cognito-idp:AdminSetUserPassword",
-                "cognito-idp:AdminUpdateUserAttributes",
-                "cognito-idp:AdminGetUser",
-                "cognito-idp:AdminDeleteUser",
-                "cognito-idp:InitiateAuth",
-                "cognito-idp:ConfirmSignUp",
-                "cognito-idp:ResendConfirmationCode",
-                "cognito-idp:ForgotPassword",
-                "cognito-idp:ConfirmForgotPassword",
-                "cognito-idp:GetUser"
-            ],
-            resources=[user_pool.user_pool_arn]
-        ))
 
         data_bucket.grant_read_write(lambda_role)
 
@@ -270,7 +170,9 @@ class GainsIQStack(Stack):
                 processing_lambda_trigger_queue
             )
         )
-        backend_lambda = _lambda.Function(self, f"GainsIQGoBackendHandler{suffix}",
+        # Create a new Lambda function with a different name to avoid permission accumulation
+        backend_lambda = _lambda.Function(self, f"GainsIQGoBackendHandlerV2{suffix}",
+                                                function_name=f"GainsIQGoBackendHandlerV2{suffix}",
                                                 runtime=_lambda.Runtime.PROVIDED_AL2023,
                                                 handler="main",
                                                 code=_lambda.Code.from_asset("./backend/go"),
@@ -282,87 +184,41 @@ class GainsIQStack(Stack):
                                                     'SETS_TABLE': sets_table.table_name,
                                                     'WEIGHT_TABLE': weight_table.table_name,
                                                     'USERS_TABLE': users_table.table_name,
-                                                    'QUEUE_URL': processing_lambda_trigger_queue.queue_url,
-                                                    'API_KEY_MAP': api_keys_json,
-                                                    'COGNITO_USER_POOL_ID': user_pool.user_pool_id,
-                                                    'COGNITO_USER_POOL_CLIENT_ID': user_pool_client.user_pool_client_id,
-                                                    'COGNITO_IDENTITY_POOL_ID': identity_pool.ref
+                                                    'QUEUE_URL': processing_lambda_trigger_queue.queue_url
                                                 })
         
         log_group = logs.LogGroup(self, f"GainsIQApiLogs{suffix}",
                               retention=logs.RetentionDays.ONE_WEEK)
-        
-        api = apigateway.RestApi(self, f"GainsIQAPI{suffix}",
-                         rest_api_name=f"GainsIQ API {env_name}",
-                         description=f"API for GainsIQ workout tracker ({env_name}).",
-                         deploy_options=apigateway.StageOptions(
-                             logging_level=apigateway.MethodLoggingLevel.INFO,
-                             data_trace_enabled=True,
-                             metrics_enabled=True,
-                             access_log_destination=apigateway.LogGroupLogDestination(log_group),
-                         ),
-                         default_cors_preflight_options={
-                             "allow_origins": Cors.ALL_ORIGINS,
-                             "allow_methods": Cors.ALL_METHODS
-                         },
-                         cloud_watch_role=True
-                         )
-        
+
+        # Use LambdaRestApi instead of manually creating routes to avoid policy size limits
+        api = apigateway.LambdaRestApi(self, f"GainsIQAPI{suffix}",
+                                      handler=backend_lambda,
+                                      rest_api_name=f"GainsIQ API {env_name}",
+                                      description=f"API for GainsIQ workout tracker ({env_name}).",
+                                      deploy_options=apigateway.StageOptions(
+                                          logging_level=apigateway.MethodLoggingLevel.INFO,
+                                          data_trace_enabled=True,
+                                          metrics_enabled=True,
+                                          access_log_destination=apigateway.LogGroupLogDestination(log_group),
+                                      ),
+                                      default_cors_preflight_options={
+                                          "allow_origins": Cors.ALL_ORIGINS,
+                                          "allow_methods": Cors.ALL_METHODS
+                                      },
+                                      cloud_watch_role=True,
+                                      proxy=True
+                                      )
+
         usage_plan = api.add_usage_plan(f"GainsIQUsagePlan{suffix}",
                                 name=f"GainsIQUsagePlan{suffix}",
                                 throttle={
-                                    "rate_limit": 5, 
-                                    "burst_limit": 10  
+                                    "rate_limit": 5,
+                                    "burst_limit": 10
                                 })
 
         usage_plan.add_api_stage(
-            stage=api.deployment_stage  
+            stage=api.deployment_stage
         )
-        
-        # Authentication endpoints (no auth required)
-        auth = api.root.add_resource("auth")
-        register = auth.add_resource("register")
-        register.add_method("POST", apigateway.LambdaIntegration(backend_lambda, proxy=True))
-        login = auth.add_resource("login")
-        login.add_method("POST", apigateway.LambdaIntegration(backend_lambda, proxy=True))
-        refresh = auth.add_resource("refresh")
-        refresh.add_method("POST", apigateway.LambdaIntegration(backend_lambda, proxy=True))
-
-        exercises = api.root.add_resource("exercises")
-        exercises.add_method("POST", apigateway.LambdaIntegration(backend_lambda, proxy=True))
-        exercises.add_method("GET", apigateway.LambdaIntegration(backend_lambda, proxy=True))
-        exercises.add_method("PUT", apigateway.LambdaIntegration(backend_lambda, proxy=True))
-        exercises.add_method("DELETE", apigateway.LambdaIntegration(backend_lambda, proxy=True))
-
-        sets = api.root.add_resource("sets")
-        log = sets.add_resource("log")
-        log.add_method("POST", apigateway.LambdaIntegration(backend_lambda, proxy=True))
-        pop_set = sets.add_resource("pop")
-        pop_set.add_method("POST", apigateway.LambdaIntegration(backend_lambda, proxy=True))
-        sets.add_method("DELETE", apigateway.LambdaIntegration(backend_lambda, proxy=True))
-        sets.add_method("GET", apigateway.LambdaIntegration(backend_lambda, proxy=True))
-        last_month = sets.add_resource("last_month")
-        last_month.add_method("GET", apigateway.LambdaIntegration(backend_lambda, proxy=True))
-        edit = sets.add_resource("edit")
-        edit.add_method("PUT", apigateway.LambdaIntegration(backend_lambda, proxy=True))
-        by_exercise = sets.add_resource("by_exercise")
-        by_exercise.add_method("GET", apigateway.LambdaIntegration(backend_lambda, proxy=True))
-
-        weight = api.root.add_resource("weight")
-        weight.add_method("POST", apigateway.LambdaIntegration(backend_lambda, proxy=True))
-        weight.add_method("GET", apigateway.LambdaIntegration(backend_lambda, proxy=True))
-        weight.add_method("DELETE", apigateway.LambdaIntegration(backend_lambda, proxy=True))
-        trend = weight.add_resource("trend")
-        trend.add_method("GET", apigateway.LambdaIntegration(backend_lambda, proxy=True))
-
-        analysis = api.root.add_resource("analysis")
-        analysis.add_method("GET", apigateway.LambdaIntegration(backend_lambda, proxy=True))
-        analysis.add_method("POST", apigateway.LambdaIntegration(backend_lambda, proxy=True))
-
-        analytics = api.root.add_resource("analytics")
-        volume = analytics.add_resource("volume")
-        bodypart = volume.add_resource("bodypart")
-        bodypart.add_method("GET", apigateway.LambdaIntegration(backend_lambda, proxy=True))
 
         monthly_rule = events.Rule(self, f"GainsIQMonthlyRule{suffix}",
                                    schedule=events.Schedule.cron(minute="0", hour="0", day="1", month="*", year="*"))
@@ -378,15 +234,33 @@ class GainsIQStack(Stack):
             point_in_time_recovery=True
         )
 
+        # Add DynamoDB permissions for all tables to the Lambda role
         lambda_role.add_to_policy(iam.PolicyStatement(
             effect=iam.Effect.ALLOW,
             actions=[
+                "dynamodb:BatchGetItem",
+                "dynamodb:BatchWriteItem",
+                "dynamodb:PutItem",
                 "dynamodb:Scan",
-                "dynamodb:GetItem",
                 "dynamodb:Query",
-                "dynamodb:PutItem"
+                "dynamodb:GetItem",
+                "dynamodb:UpdateItem",
+                "dynamodb:DeleteItem",
+                "dynamodb:TransactWriteItems"
             ],
-            resources=[sets_table.table_arn, anomalies_table.table_arn]
+            resources=[
+                exercises_table.table_arn,
+                sets_table.table_arn,
+                weight_table.table_arn,
+                analyses_table.table_arn,
+                users_table.table_arn,
+                anomalies_table.table_arn,
+                # Add permissions for all GSIs
+                f"{exercises_table.table_arn}/index/*",
+                f"{sets_table.table_arn}/index/*",
+                f"{weight_table.table_arn}/index/*",
+                f"{analyses_table.table_arn}/index/*"
+            ]
         ))
 
         anomaly_detection_lambda = _lambda.Function(self, f"AnomalyDetectionLambda{suffix}",

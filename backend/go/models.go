@@ -17,6 +17,10 @@ type LogSetRequest struct {
 	Timestamp *int64  `json:"timestamp,omitempty"`
 }
 
+type BatchLogSetsRequest struct {
+	Sets []LogSetRequest `json:"sets"`
+}
+
 type EditSetRequest struct {
 	WorkoutID string   `json:"workoutId"`
 	Timestamp int64    `json:"timestamp"`
@@ -71,36 +75,23 @@ type AnalysisItem struct {
 	UserID    string `dynamodbav:"userId"`
 }
 
-type RegisterRequest struct {
-	Username   string  `json:"username"`
-	Email      *string `json:"email,omitempty"`
-	Password   string  `json:"password"`
-	GivenName  *string `json:"given_name,omitempty"`
-	FamilyName *string `json:"family_name,omitempty"`
-}
 
-type LoginRequest struct {
-	Username string `json:"username"`
-	Password string `json:"password"`
-}
-
-type RefreshTokenRequest struct {
-	RefreshToken string `json:"refresh_token"`
-}
-
-type AuthResponse struct {
-	AccessToken  string `json:"access_token"`
-	IdToken      string `json:"id_token"`
-	RefreshToken string `json:"refresh_token"`
-	ExpiresIn    int32  `json:"expires_in"`
-	TokenType    string `json:"token_type"`
-}
-
-type UserProfileItem struct {
-	UserID     string  `dynamodbav:"userId"`
+type UserItem struct {
+	Username   string  `dynamodbav:"username"`
+	ApiKey     string  `dynamodbav:"apiKey"`
 	Email      *string `dynamodbav:"email,omitempty"`
 	GivenName  *string `dynamodbav:"givenName,omitempty"`
 	FamilyName *string `dynamodbav:"familyName,omitempty"`
 	CreatedAt  int64   `dynamodbav:"createdAt"`
 	UpdatedAt  int64   `dynamodbav:"updatedAt"`
+	IsActive   bool    `dynamodbav:"isActive"`
+}
+
+type CreateUserRequest struct {
+	Username string `json:"username"`
+}
+
+type CreateUserResponse struct {
+	Username string `json:"username"`
+	ApiKey   string `json:"apiKey"`
 }

@@ -7,10 +7,6 @@ import (
 	"github.com/aws/aws-lambda-go/events"
 )
 
-func getUserForAPIKey(apiKey string) (string, bool) {
-	user, ok := apiKeyMapVar[apiKey]
-	return user, ok
-}
 
 func respond(status int, body interface{}) (events.APIGatewayProxyResponse, error) {
 	headers := map[string]string{

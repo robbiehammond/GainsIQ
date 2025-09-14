@@ -15,40 +15,29 @@ func handler(ctx context.Context, req events.APIGatewayProxyRequest) (events.API
 	path := req.Path
 	method := req.HTTPMethod
 
-	// Authentication routes that don't require JWT validation
-	switch {
-	case method == "POST" && path == "/auth/register":
-		return handleRegister(req)
-	case method == "POST" && path == "/auth/login":
-		return handleLogin(req)
-	case method == "POST" && path == "/auth/refresh":
-		return handleRefreshToken(req)
+	// User creation endpoint doesn't require authentication
+	if method == "POST" && path == "/users/create" {
+		return handleCreateUser(req)
 	}
 
-	// All other routes require authentication
-	// Extract Bearer token from Authorization header
+	// All other routes require API key authentication
+	// Extract API key from Authorization header
 	authHeader := req.Headers["Authorization"]
 	if authHeader == "" {
 		authHeader = req.Headers["authorization"] // Try lowercase
 	}
-	
+
 	if authHeader == "" {
 		log.Printf("Unauthorized: No Authorization header provided")
 		return respond(401, map[string]string{"error": "Unauthorized: No Authorization header"})
 	}
 
-	token, err := extractBearerToken(authHeader)
+	userID, err := authenticateRequest(authHeader)
 	if err != nil {
-		log.Printf("Unauthorized: Invalid Authorization header format: %v", err)
-		return respond(401, map[string]string{"error": "Unauthorized: Invalid Authorization header format"})
+		log.Printf("Unauthorized: %v", err)
+		return respond(401, map[string]string{"error": fmt.Sprintf("Unauthorized: %v", err)})
 	}
 
-	userID, err := extractUserIDFromJWT(token, cognitoRegion, cognitoUserPoolID)
-	if err != nil {
-		log.Printf("Unauthorized: Invalid JWT token: %v", err)
-		return respond(401, map[string]string{"error": "Unauthorized: Invalid JWT token"})
-	}
-	
 	log.Printf("Request from user: %s for %s %s", userID, req.HTTPMethod, req.Path)
 
 	switch {
@@ -100,6 +89,20 @@ func handler(ctx context.Context, req events.APIGatewayProxyRequest) (events.API
 			return respond(500, map[string]string{"error": fmt.Sprintf("Error logging set: %v", err)})
 		}
 		return respond(200, map[string]string{"message": fmt.Sprintf("Set for %s logged successfully", body.Exercise)})
+
+	case method == "POST" && path == "/sets/batch":
+		var body BatchLogSetsRequest
+		if err := json.Unmarshal([]byte(req.Body), &body); err != nil {
+			return respond(400, map[string]string{"error": fmt.Sprintf("Invalid request: %v", err)})
+		}
+		if len(body.Sets) == 0 {
+			return respond(400, map[string]string{"error": "No sets provided in batch request"})
+		}
+		if err := batchLogSetsToDB(userID, body.Sets); err != nil {
+			log.Printf("Error batch logging %d sets: %v", len(body.Sets), err)
+			return respond(500, map[string]string{"error": fmt.Sprintf("Error batch logging sets: %v", err)})
+		}
+		return respond(200, map[string]string{"message": fmt.Sprintf("Successfully logged %d sets", len(body.Sets))})
 
 	case method == "GET" && path == "/sets/last_month":
 		setsList, err := getLastMonthSetsFromDB()
@@ -279,87 +282,27 @@ func handler(ctx context.Context, req events.APIGatewayProxyRequest) (events.API
 	}
 }
 
-func handleRegister(req events.APIGatewayProxyRequest) (events.APIGatewayProxyResponse, error) {
-	var body RegisterRequest
+func handleCreateUser(req events.APIGatewayProxyRequest) (events.APIGatewayProxyResponse, error) {
+	var body CreateUserRequest
 	if err := json.Unmarshal([]byte(req.Body), &body); err != nil {
 		return respond(400, map[string]string{"error": fmt.Sprintf("Invalid request: %v", err)})
 	}
 
-	// Validate required fields (only username and password are required)
-	if body.Username == "" || body.Password == "" {
-		return respond(400, map[string]string{"error": "username and password are required"})
+	if body.Username == "" {
+		return respond(400, map[string]string{"error": "username is required"})
 	}
 
-	// Register user with Cognito
-	if err := registerUser(body.Username, body.Password, body.Email, body.GivenName, body.FamilyName); err != nil {
-		log.Printf("Error registering user '%s': %v", body.Username, err)
-		return respond(500, map[string]string{"error": fmt.Sprintf("Error registering user: %v", err)})
-	}
-
-	// Create user profile in DynamoDB
-	if err := createUserProfile(body.Username, body.Email, body.GivenName, body.FamilyName); err != nil {
-		log.Printf("Error creating user profile for '%s': %v", body.Username, err)
-		// Note: We don't return an error here as the user was successfully created in Cognito
-		log.Printf("User '%s' registered in Cognito but profile creation failed", body.Username)
-	}
-
-	return respond(201, map[string]string{"message": "User registered successfully"})
-}
-
-func handleLogin(req events.APIGatewayProxyRequest) (events.APIGatewayProxyResponse, error) {
-	var body LoginRequest
-	if err := json.Unmarshal([]byte(req.Body), &body); err != nil {
-		return respond(400, map[string]string{"error": fmt.Sprintf("Invalid request: %v", err)})
-	}
-
-	if body.Username == "" || body.Password == "" {
-		return respond(400, map[string]string{"error": "username and password are required"})
-	}
-
-	authResult, err := loginUser(body.Username, body.Password)
+	username, apiKey, err := createUserWithApiKey(body.Username)
 	if err != nil {
-		log.Printf("Login failed for user '%s': %v", body.Username, err)
-		return respond(401, map[string]string{"error": "Invalid credentials"})
+		log.Printf("Error creating user '%s': %v", body.Username, err)
+		return respond(500, map[string]string{"error": fmt.Sprintf("Error creating user: %v", err)})
 	}
 
-	response := AuthResponse{
-		AccessToken:  *authResult.AccessToken,
-		IdToken:      *authResult.IdToken,
-		RefreshToken: *authResult.RefreshToken,
-		ExpiresIn:    authResult.ExpiresIn,
-		TokenType:    *authResult.TokenType,
+	response := CreateUserResponse{
+		Username: username,
+		ApiKey:   apiKey,
 	}
 
-	return respond(200, response)
-}
-
-func handleRefreshToken(req events.APIGatewayProxyRequest) (events.APIGatewayProxyResponse, error) {
-	var body RefreshTokenRequest
-	if err := json.Unmarshal([]byte(req.Body), &body); err != nil {
-		return respond(400, map[string]string{"error": fmt.Sprintf("Invalid request: %v", err)})
-	}
-
-	if body.RefreshToken == "" {
-		return respond(400, map[string]string{"error": "refresh_token is required"})
-	}
-
-	authResult, err := refreshToken(body.RefreshToken)
-	if err != nil {
-		log.Printf("Token refresh failed: %v", err)
-		return respond(401, map[string]string{"error": "Invalid refresh token"})
-	}
-
-	response := AuthResponse{
-		AccessToken: *authResult.AccessToken,
-		IdToken:     *authResult.IdToken,
-		ExpiresIn:   authResult.ExpiresIn,
-		TokenType:   *authResult.TokenType,
-	}
-
-	// Refresh token is not always returned in refresh operations
-	if authResult.RefreshToken != nil {
-		response.RefreshToken = *authResult.RefreshToken
-	}
-
-	return respond(200, response)
+	log.Printf("Created user '%s'", username)
+	return respond(201, response)
 }

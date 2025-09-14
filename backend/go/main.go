@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"encoding/json"
 	"log"
 	"os"
 
@@ -21,10 +20,6 @@ var (
 	analysesTableName  string
 	usersTableName     string
 	queueURL           string
-	apiKeyMapVar       map[string]string
-	cognitoUserPoolID  string
-	cognitoClientID    string
-	cognitoRegion      string
 )
 
 func init() {
@@ -58,32 +53,6 @@ func init() {
 	queueURL = os.Getenv("QUEUE_URL")
 	if queueURL == "" {
 		log.Fatal("QUEUE_URL environment variable not set")
-	}
-
-	cognitoUserPoolID = os.Getenv("COGNITO_USER_POOL_ID")
-	if cognitoUserPoolID == "" {
-		log.Fatal("COGNITO_USER_POOL_ID environment variable not set")
-	}
-	cognitoClientID = os.Getenv("COGNITO_USER_POOL_CLIENT_ID")
-	if cognitoClientID == "" {
-		log.Fatal("COGNITO_USER_POOL_CLIENT_ID environment variable not set")
-	}
-	
-	cognitoRegion = os.Getenv("AWS_REGION")
-	if cognitoRegion == "" {
-		cognitoRegion = "us-west-2"
-		log.Printf("WARN: AWS_REGION not set, defaulting to %s", cognitoRegion)
-	}
-
-	apiKeyMapJSON := os.Getenv("API_KEY_MAP")
-	if apiKeyMapJSON == "" {
-		log.Println("WARN: API_KEY_MAP environment variable not set or empty. API key map will be empty.")
-		apiKeyMapVar = make(map[string]string)
-	} else {
-		if err := json.Unmarshal([]byte(apiKeyMapJSON), &apiKeyMapVar); err != nil {
-			log.Printf("WARN: Error unmarshalling API_KEY_MAP: %v. API key map will be empty.", err)
-			apiKeyMapVar = make(map[string]string)
-		}
 	}
 }
 

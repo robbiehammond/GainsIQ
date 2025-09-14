@@ -288,6 +288,150 @@ func getLastMonthSetsFromDB() ([]SetOutputItem, error) {
 	return outputItems, nil
 }
 
+type hypotheticalSet struct {
+	Exercise  string
+	Timestamp int64
+	SetNumber int
+}
+
+func buildHypotheticalDay(exercise string, dayStart int64, newSets []LogSetRequest) ([]hypotheticalSet, error) {
+	dayEnd := dayStart + 86400 - 1
+
+	// Get existing sets for this exercise on this day
+	filterExpression := "#ex = :exercise_val AND #ts BETWEEN :start_ts AND :end_ts"
+	exprAttrNames := map[string]string{
+		"#ex": "exercise",
+		"#ts": "timestamp",
+	}
+	exprAttrValuesMap := map[string]interface{}{
+		":exercise_val": exercise,
+		":start_ts":     dayStart,
+		":end_ts":       dayEnd,
+	}
+	marshaledExprAttrValues, err := attributevalue.MarshalMap(exprAttrValuesMap)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal expression attribute values: %w", err)
+	}
+
+	scanInput := &dynamodb.ScanInput{
+		TableName:                 aws.String(setsTableName),
+		FilterExpression:          aws.String(filterExpression),
+		ExpressionAttributeNames:  exprAttrNames,
+		ExpressionAttributeValues: marshaledExprAttrValues,
+	}
+
+	result, err := ddbClient.Scan(context.TODO(), scanInput)
+	if err != nil {
+		return nil, fmt.Errorf("failed to scan existing sets: %w", err)
+	}
+
+	var existingSets []SetItem
+	for _, itemMap := range result.Items {
+		var si SetItem
+		if errUnmarshal := attributevalue.UnmarshalMap(itemMap, &si); errUnmarshal != nil {
+			log.Printf("Warning: failed to unmarshal set item: %v", errUnmarshal)
+			continue
+		}
+		existingSets = append(existingSets, si)
+	}
+
+	// Create hypothetical sets from existing ones
+	var allSets []hypotheticalSet
+	for _, set := range existingSets {
+		allSets = append(allSets, hypotheticalSet{
+			Exercise:  set.Exercise,
+			Timestamp: set.Timestamp,
+		})
+	}
+
+	// Add new sets for this exercise on this day
+	for _, newSet := range newSets {
+		var timestamp int64
+		if newSet.Timestamp != nil {
+			timestamp = *newSet.Timestamp
+		} else {
+			timestamp = time.Now().Unix()
+		}
+
+		// Only include sets for this exercise on this day
+		setDayStart := time.Unix(timestamp, 0).Truncate(24 * time.Hour).Unix()
+		if setDayStart == dayStart && newSet.Exercise == exercise {
+			allSets = append(allSets, hypotheticalSet{
+				Exercise:  newSet.Exercise,
+				Timestamp: timestamp,
+			})
+		}
+	}
+
+	// Sort by timestamp to determine correct order
+	sort.SliceStable(allSets, func(i, j int) bool {
+		return allSets[i].Timestamp < allSets[j].Timestamp
+	})
+
+	// Assign set numbers in order
+	for i := range allSets {
+		allSets[i].SetNumber = i + 1
+	}
+
+	return allSets, nil
+}
+
+func calculateCorrectSetNumbers(userID string, requests []LogSetRequest) (map[string]int, error) {
+	// Group requests by day and exercise
+	dayExerciseGroups := make(map[string]map[string][]LogSetRequest) // dayStart -> exercise -> requests
+
+	for _, req := range requests {
+		var timestamp int64
+		if req.Timestamp != nil {
+			timestamp = *req.Timestamp
+		} else {
+			timestamp = time.Now().Unix()
+		}
+
+		dayStart := time.Unix(timestamp, 0).Truncate(24 * time.Hour).Unix()
+		dayKey := strconv.FormatInt(dayStart, 10)
+
+		if dayExerciseGroups[dayKey] == nil {
+			dayExerciseGroups[dayKey] = make(map[string][]LogSetRequest)
+		}
+		dayExerciseGroups[dayKey][req.Exercise] = append(dayExerciseGroups[dayKey][req.Exercise], req)
+	}
+
+	// Build a map from timestamp to correct set number
+	timestampToSetNumber := make(map[string]int)
+
+	for dayKey, exerciseGroups := range dayExerciseGroups {
+		dayStart, _ := strconv.ParseInt(dayKey, 10, 64)
+
+		for exercise, exerciseRequests := range exerciseGroups {
+			hypotheticalSets, err := buildHypotheticalDay(exercise, dayStart, requests)
+			if err != nil {
+				return nil, fmt.Errorf("failed to build hypothetical day for %s: %w", exercise, err)
+			}
+
+			// Map new request timestamps to their correct set numbers
+			for _, hypoSet := range hypotheticalSets {
+				// Check if this is one of our new sets
+				for _, req := range exerciseRequests {
+					var reqTimestamp int64
+					if req.Timestamp != nil {
+						reqTimestamp = *req.Timestamp
+					} else {
+						reqTimestamp = time.Now().Unix()
+					}
+
+					if hypoSet.Timestamp == reqTimestamp && hypoSet.Exercise == req.Exercise {
+						timestampKey := fmt.Sprintf("%s_%d", exercise, reqTimestamp)
+						timestampToSetNumber[timestampKey] = hypoSet.SetNumber
+					}
+				}
+			}
+		}
+	}
+
+	return timestampToSetNumber, nil
+}
+
 func logSetToDB(userID string, req LogSetRequest) error {
 	var modulation string
 	if req.IsCutting != nil && *req.IsCutting {
@@ -332,6 +476,81 @@ func logSetToDB(userID string, req LogSetRequest) error {
 	if err != nil {
 		return fmt.Errorf("failed to put set item: %w", err)
 	}
+	return nil
+}
+
+func batchLogSetsToDB(userID string, requests []LogSetRequest) error {
+	if len(requests) == 0 {
+		return fmt.Errorf("no sets provided for batch logging")
+	}
+
+	if len(requests) > 100 {
+		return fmt.Errorf("too many sets in batch (maximum 100)")
+	}
+
+	// Calculate correct set numbers before doing the transaction
+	timestampToSetNumber, err := calculateCorrectSetNumbers(userID, requests)
+	if err != nil {
+		return fmt.Errorf("failed to calculate correct set numbers: %w", err)
+	}
+
+	var transactItems []types.TransactWriteItem
+
+	for _, req := range requests {
+		var modulation string
+		if req.IsCutting != nil && *req.IsCutting {
+			modulation = "Cutting"
+		} else {
+			modulation = "Bulking"
+		}
+
+		// Use provided timestamp if available, otherwise use current time
+		var timestamp int64
+		if req.Timestamp != nil {
+			timestamp = *req.Timestamp
+		} else {
+			timestamp = time.Now().Unix()
+		}
+
+		// Get the correct set number from our pre-calculation
+		timestampKey := fmt.Sprintf("%s_%d", req.Exercise, timestamp)
+		setNumber, exists := timestampToSetNumber[timestampKey]
+		if !exists {
+			return fmt.Errorf("failed to find calculated set number for exercise %s at timestamp %d", req.Exercise, timestamp)
+		}
+
+		item := SetItem{
+			WorkoutID:        uuid.NewString(),
+			Timestamp:        timestamp,
+			Exercise:         req.Exercise,
+			Reps:             req.Reps,
+			Sets:             int32(setNumber),
+			Weight:           req.Weight,
+			WeightModulation: modulation,
+			UserID:           userID,
+		}
+
+		av, err := attributevalue.MarshalMap(item)
+		if err != nil {
+			return fmt.Errorf("failed to marshal set item for exercise %s: %w", req.Exercise, err)
+		}
+
+		transactItems = append(transactItems, types.TransactWriteItem{
+			Put: &types.Put{
+				TableName: aws.String(setsTableName),
+				Item:      av,
+			},
+		})
+	}
+
+	// Execute the transaction with correct set numbers
+	_, err = ddbClient.TransactWriteItems(context.TODO(), &dynamodb.TransactWriteItemsInput{
+		TransactItems: transactItems,
+	})
+	if err != nil {
+		return fmt.Errorf("failed to execute batch transaction: %w", err)
+	}
+
 	return nil
 }
 
@@ -769,4 +988,54 @@ func pingProcessingLambdaViaSQS() (messageID string, err error) {
 	}
 	log.Println("SQS SendMessage succeeded but no MessageId was returned.")
 	return "", nil
+}
+
+func createUserWithApiKey(username string) (string, string, error) {
+	if username == "" {
+		return "", "", fmt.Errorf("username cannot be empty")
+	}
+
+	// Check if user already exists
+	getInput := &dynamodb.GetItemInput{
+		TableName: aws.String(usersTableName),
+		Key: map[string]types.AttributeValue{
+			"username": &types.AttributeValueMemberS{Value: username},
+		},
+	}
+
+	result, err := ddbClient.GetItem(context.TODO(), getInput)
+	if err != nil {
+		return "", "", fmt.Errorf("failed to check if user exists: %w", err)
+	}
+
+	if result.Item != nil {
+		return "", "", fmt.Errorf("username '%s' already exists", username)
+	}
+
+	// Generate API key and create user
+	apiKey := uuid.NewString()
+	currentTime := time.Now().Unix()
+
+	userItem := UserItem{
+		Username:  username,
+		ApiKey:    apiKey,
+		CreatedAt: currentTime,
+		UpdatedAt: currentTime,
+		IsActive:  true,
+	}
+
+	userAV, err := attributevalue.MarshalMap(userItem)
+	if err != nil {
+		return "", "", fmt.Errorf("failed to marshal user item: %w", err)
+	}
+
+	_, err = ddbClient.PutItem(context.TODO(), &dynamodb.PutItemInput{
+		TableName: aws.String(usersTableName),
+		Item:      userAV,
+	})
+	if err != nil {
+		return "", "", fmt.Errorf("failed to create user: %w", err)
+	}
+
+	return username, apiKey, nil
 }
