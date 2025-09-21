@@ -28,13 +28,10 @@ func handler(ctx context.Context, req events.APIGatewayProxyRequest) (events.API
 		return handleCreateUser(req)
 	}
 
-	// All other routes require API key authentication
-	log.Printf("Starting authentication process...")
-
 	// Extract API key from Authorization header
 	authHeader := req.Headers["Authorization"]
 	if authHeader == "" {
-		authHeader = req.Headers["authorization"] // Try lowercase
+		authHeader = req.Headers["authorization"] 
 	}
 
 	log.Printf("Authorization header: %s", authHeader)

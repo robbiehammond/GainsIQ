@@ -33,7 +33,6 @@ func validateApiKeyAndGetUserId(apiKey string) (string, error) {
 		return "", fmt.Errorf("API key cannot be empty")
 	}
 
-	// Scan the users table to find the user with this API key
 	log.Printf("Starting DynamoDB scan on table: %s", usersTableName)
 	scanInput := &dynamodb.ScanInput{
 		TableName:        aws.String(usersTableName),
