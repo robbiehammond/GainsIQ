@@ -100,11 +100,18 @@ func logWeightToDB(username string, weightValue float32) error {
 	return nil
 }
 
-func getWeightsFromDB() ([]WeightOutputItem, error) {
-	scanInput := &dynamodb.ScanInput{
-		TableName: aws.String(weightTableName),
-	}
-	result, err := ddbClient.Scan(context.TODO(), scanInput)
+func getWeightsFromDB(username string) ([]WeightOutputItem, error) {
+    scanInput := &dynamodb.ScanInput{
+        TableName:        aws.String(weightTableName),
+        FilterExpression: aws.String("#u = :username"),
+        ExpressionAttributeNames: map[string]string{
+            "#u": "username",
+        },
+        ExpressionAttributeValues: map[string]types.AttributeValue{
+            ":username": &types.AttributeValueMemberS{Value: username},
+        },
+    }
+    result, err := ddbClient.Scan(context.TODO(), scanInput)
 	if err != nil {
 		return nil, fmt.Errorf("failed to scan weight table: %w", err)
 	}
@@ -134,19 +141,21 @@ func getWeightsFromDB() ([]WeightOutputItem, error) {
 	return outputItems, nil
 }
 
-func calculateWeightTrend() (WeightTrendResponse, error) {
-	twoWeeksAgo := time.Now().AddDate(0, 0, -14).Unix()
+func calculateWeightTrend(username string) (WeightTrendResponse, error) {
+    twoWeeksAgo := time.Now().AddDate(0, 0, -14).Unix()
 
-	scanInput := &dynamodb.ScanInput{
-		TableName:        aws.String(weightTableName),
-		FilterExpression: aws.String("#ts >= :two_weeks_ago"),
-		ExpressionAttributeNames: map[string]string{
-			"#ts": "timestamp",
-		},
-		ExpressionAttributeValues: map[string]types.AttributeValue{
-			":two_weeks_ago": &types.AttributeValueMemberN{Value: strconv.FormatInt(twoWeeksAgo, 10)},
-		},
-	}
+    scanInput := &dynamodb.ScanInput{
+        TableName:        aws.String(weightTableName),
+        FilterExpression: aws.String("#u = :username AND #ts >= :two_weeks_ago"),
+        ExpressionAttributeNames: map[string]string{
+            "#u":  "username",
+            "#ts": "timestamp",
+        },
+        ExpressionAttributeValues: map[string]types.AttributeValue{
+            ":username":      &types.AttributeValueMemberS{Value: username},
+            ":two_weeks_ago": &types.AttributeValueMemberN{Value: strconv.FormatInt(twoWeeksAgo, 10)},
+        },
+    }
 
 	result, err := ddbClient.Scan(context.TODO(), scanInput)
 	if err != nil {
@@ -202,11 +211,18 @@ func calculateWeightTrend() (WeightTrendResponse, error) {
 	}, nil
 }
 
-func deleteMostRecentWeightFromDB() (deleted bool, err error) {
-	scanInput := &dynamodb.ScanInput{
-		TableName: aws.String(weightTableName),
-	}
-	result, errScan := ddbClient.Scan(context.TODO(), scanInput)
+func deleteMostRecentWeightFromDB(username string) (deleted bool, err error) {
+    scanInput := &dynamodb.ScanInput{
+        TableName:        aws.String(weightTableName),
+        FilterExpression: aws.String("#u = :username"),
+        ExpressionAttributeNames: map[string]string{
+            "#u": "username",
+        },
+        ExpressionAttributeValues: map[string]types.AttributeValue{
+            ":username": &types.AttributeValueMemberS{Value: username},
+        },
+    }
+    result, errScan := ddbClient.Scan(context.TODO(), scanInput)
 	if errScan != nil {
 		return false, fmt.Errorf("failed to scan weight table for delete: %w", errScan)
 	}

@@ -230,38 +230,38 @@ func handler(ctx context.Context, req events.APIGatewayProxyRequest) (events.API
 		}
 		return respond(200, map[string]string{"message": "Weight logged successfully"})
 
-	case method == "GET" && path == "/weight":
-		weightsList, err := getWeightsFromDB()
-		if err != nil {
-			log.Printf("Error getting weights: %v", err)
-			return respond(500, map[string]string{"error": fmt.Sprintf("Error fetching weights: %v", err)})
-		}
-		return respond(200, weightsList)
+    case method == "GET" && path == "/weight":
+        weightsList, err := getWeightsFromDB(username)
+        if err != nil {
+            log.Printf("Error getting weights: %v", err)
+            return respond(500, map[string]string{"error": fmt.Sprintf("Error fetching weights: %v", err)})
+        }
+        return respond(200, weightsList)
 
-	case method == "DELETE" && path == "/weight":
-		deleted, err := deleteMostRecentWeightFromDB()
-		if err != nil {
-			log.Printf("Error deleting most recent weight: %v", err)
-			if strings.Contains(err.Error(), "no valid weight entry found") || strings.Contains(err.Error(), "no weight found to delete") {
-				return respond(404, map[string]string{"error": "No weight found to delete"})
-			}
-			return respond(500, map[string]string{"error": fmt.Sprintf("Error deleting most recent weight: %v", err)})
-		}
-		if !deleted {
-			return respond(404, map[string]string{"error": "No weight found to delete"})
-		}
-		return respond(200, map[string]string{"message": "Most recent weight deleted successfully"})
+    case method == "DELETE" && path == "/weight":
+        deleted, err := deleteMostRecentWeightFromDB(username)
+        if err != nil {
+            log.Printf("Error deleting most recent weight: %v", err)
+            if strings.Contains(err.Error(), "no valid weight entry found") || strings.Contains(err.Error(), "no weight found to delete") {
+                return respond(404, map[string]string{"error": "No weight found to delete"})
+            }
+            return respond(500, map[string]string{"error": fmt.Sprintf("Error deleting most recent weight: %v", err)})
+        }
+        if !deleted {
+            return respond(404, map[string]string{"error": "No weight found to delete"})
+        }
+        return respond(200, map[string]string{"message": "Most recent weight deleted successfully"})
 
-	case method == "GET" && path == "/weight/trend":
-		trend, err := calculateWeightTrend()
-		if err != nil {
-			log.Printf("Error calculating weight trend: %v", err)
-			if strings.Contains(err.Error(), "insufficient data points") {
-				return respond(400, map[string]string{"error": "Insufficient data points for trend calculation (need at least 2 weights in the last 2 weeks)"})
-			}
-			return respond(500, map[string]string{"error": fmt.Sprintf("Error calculating weight trend: %v", err)})
-		}
-		return respond(200, trend)
+    case method == "GET" && path == "/weight/trend":
+        trend, err := calculateWeightTrend(username)
+        if err != nil {
+            log.Printf("Error calculating weight trend: %v", err)
+            if strings.Contains(err.Error(), "insufficient data points") {
+                return respond(400, map[string]string{"error": "Insufficient data points for trend calculation (need at least 2 weights in the last 2 weeks)"})
+            }
+            return respond(500, map[string]string{"error": fmt.Sprintf("Error calculating weight trend: %v", err)})
+        }
+        return respond(200, trend)
 
 	// === Analysis ===
 	case method == "GET" && path == "/analysis":
