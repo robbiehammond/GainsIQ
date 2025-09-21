@@ -79,13 +79,13 @@ func deleteExerciseFromDB(exerciseName string) error {
 	return nil
 }
 
-func logWeightToDB(userID string, weightValue float32) error {
-	timestamp := time.Now().Unix()
-	item := WeightItem{
-		Timestamp: timestamp,
-		Weight:    weightValue,
-		Username:  userID,
-	}
+func logWeightToDB(username string, weightValue float32) error {
+    timestamp := time.Now().Unix()
+    item := WeightItem{
+        Timestamp: timestamp,
+        Weight:    weightValue,
+        Username:  username,
+    }
 	av, err := attributevalue.MarshalMap(item)
 	if err != nil {
 		return fmt.Errorf("failed to marshal weight item: %w", err)
@@ -383,7 +383,7 @@ func buildHypotheticalDay(exercise string, dayStart int64, newSets []LogSetReque
 	return allSets, nil
 }
 
-func calculateCorrectSetNumbers(userID string, requests []LogSetRequest) (map[string]int, error) {
+func calculateCorrectSetNumbers(username string, requests []LogSetRequest) (map[string]int, error) {
 	// Group requests by day and exercise
 	dayExerciseGroups := make(map[string]map[string][]LogSetRequest) // dayStart -> exercise -> requests
 
@@ -439,7 +439,7 @@ func calculateCorrectSetNumbers(userID string, requests []LogSetRequest) (map[st
 	return timestampToSetNumber, nil
 }
 
-func logSetToDB(userID string, req LogSetRequest) error {
+func logSetToDB(username string, req LogSetRequest) error {
 	var modulation string
 	if req.IsCutting != nil && *req.IsCutting {
 		modulation = "Cutting"
@@ -461,16 +461,16 @@ func logSetToDB(userID string, req LogSetRequest) error {
 		return fmt.Errorf("failed to calculate set number: %w", err)
 	}
 
-	item := SetItem{
-		WorkoutID:        uuid.NewString(),
-		Timestamp:        timestamp,
-		Exercise:         req.Exercise,
-		Reps:             req.Reps,
-		Sets:             int32(setNumber),
-		Weight:           req.Weight,
-		WeightModulation: modulation,
-		Username:         userID,
-	}
+    item := SetItem{
+        WorkoutID:        uuid.NewString(),
+        Timestamp:        timestamp,
+        Exercise:         req.Exercise,
+        Reps:             req.Reps,
+        Sets:             int32(setNumber),
+        Weight:           req.Weight,
+        WeightModulation: modulation,
+        Username:         username,
+    }
 
 	av, err := attributevalue.MarshalMap(item)
 	if err != nil {
@@ -486,7 +486,7 @@ func logSetToDB(userID string, req LogSetRequest) error {
 	return nil
 }
 
-func batchLogSetsToDB(userID string, requests []LogSetRequest) error {
+func batchLogSetsToDB(username string, requests []LogSetRequest) error {
 	if len(requests) == 0 {
 		return fmt.Errorf("no sets provided for batch logging")
 	}
@@ -496,7 +496,7 @@ func batchLogSetsToDB(userID string, requests []LogSetRequest) error {
 	}
 
 	// Calculate correct set numbers before doing the transaction
-	timestampToSetNumber, err := calculateCorrectSetNumbers(userID, requests)
+    timestampToSetNumber, err := calculateCorrectSetNumbers(username, requests)
 	if err != nil {
 		return fmt.Errorf("failed to calculate correct set numbers: %w", err)
 	}
@@ -526,16 +526,16 @@ func batchLogSetsToDB(userID string, requests []LogSetRequest) error {
 			return fmt.Errorf("failed to find calculated set number for exercise %s at timestamp %d", req.Exercise, timestamp)
 		}
 
-		item := SetItem{
-			WorkoutID:        uuid.NewString(),
-			Timestamp:        timestamp,
-			Exercise:         req.Exercise,
-			Reps:             req.Reps,
-			Sets:             int32(setNumber),
-			Weight:           req.Weight,
-			WeightModulation: modulation,
-			Username:         userID,
-		}
+        item := SetItem{
+            WorkoutID:        uuid.NewString(),
+            Timestamp:        timestamp,
+            Exercise:         req.Exercise,
+            Reps:             req.Reps,
+            Sets:             int32(setNumber),
+            Weight:           req.Weight,
+            WeightModulation: modulation,
+            Username:         username,
+        }
 
 		av, err := attributevalue.MarshalMap(item)
 		if err != nil {

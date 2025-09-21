@@ -25,8 +25,8 @@ func extractApiKeyFromHeader(authHeader string) (string, error) {
 	return parts[1], nil
 }
 
-func validateApiKeyAndGetUserId(apiKey string) (string, error) {
-	log.Printf("validateApiKeyAndGetUserId called with apiKey: %s", apiKey)
+func validateApiKeyAndGetUsername(apiKey string) (string, error) {
+    log.Printf("validateApiKeyAndGetUsername called with apiKey: %s", apiKey)
 
 	if apiKey == "" {
 		log.Printf("API key is empty")
@@ -68,19 +68,19 @@ func validateApiKeyAndGetUserId(apiKey string) (string, error) {
 		return "", fmt.Errorf("user account is inactive")
 	}
 
-	return userItem.Username, nil
+    return userItem.Username, nil
 }
 
 func authenticateRequest(authHeader string) (string, error) {
-	apiKey, err := extractApiKeyFromHeader(authHeader)
-	if err != nil {
-		return "", err
-	}
+    apiKey, err := extractApiKeyFromHeader(authHeader)
+    if err != nil {
+        return "", err
+    }
 
-	userID, err := validateApiKeyAndGetUserId(apiKey)
-	if err != nil {
-		return "", err
-	}
+    username, err := validateApiKeyAndGetUsername(apiKey)
+    if err != nil {
+        return "", err
+    }
 
-	return userID, nil
+    return username, nil
 }
