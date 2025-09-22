@@ -289,6 +289,97 @@ func handler(ctx context.Context, req events.APIGatewayProxyRequest) (events.API
 		}
 		return respond(200, map[string]string{"message": fmt.Sprintf("Message sent! ID: %s", messageID)})
 
+	case method == "GET" && path == "/injury":
+		// Optional: allow start/end filtering via query, but default to all
+		injuries, err := getInjuriesFromDB(username, req.QueryStringParameters)
+		if err != nil {
+			log.Printf("Error getting injuries: %v", err)
+			return respond(500, map[string]string{"error": fmt.Sprintf("Error fetching injuries: %v", err)})
+		}
+		return respond(200, injuries)
+
+	case method == "GET" && path == "/injury/active":
+		qp := map[string]string{}
+		for k, v := range req.QueryStringParameters { qp[k] = v }
+		qp["activeOnly"] = "true"
+		injuries, err := getInjuriesFromDB(username, qp)
+		if err != nil {
+			log.Printf("Error getting active injuries: %v", err)
+			return respond(500, map[string]string{"error": fmt.Sprintf("Error fetching active injuries: %v", err)})
+		}
+		return respond(200, injuries)
+
+	case method == "POST" && path == "/injury":
+		var body InjuryRequest
+		if err := json.Unmarshal([]byte(req.Body), &body); err != nil {
+			return respond(400, map[string]string{"error": fmt.Sprintf("Invalid request: %v", err)})
+		}
+		if strings.TrimSpace(body.Location) == "" {
+			return respond(400, map[string]string{"error": "location is required"})
+		}
+		if err := logInjuryToDB(username, body); err != nil {
+			log.Printf("Error logging injury: %v", err)
+			msg := fmt.Sprintf("Error logging injury: %v", err)
+			if strings.Contains(strings.ToLower(err.Error()), "bodypart location") || strings.Contains(strings.ToLower(err.Error()), "not found") || strings.Contains(strings.ToLower(err.Error()), "location is required") {
+				return respond(400, map[string]string{"error": msg})
+			}
+			return respond(500, map[string]string{"error": msg})
+		}
+		return respond(200, map[string]string{"message": "Injury logged successfully"})
+
+	case method == "PUT" && path == "/injury/active":
+		var body UpdateInjuryActiveRequest
+		if err := json.Unmarshal([]byte(req.Body), &body); err != nil {
+			return respond(400, map[string]string{"error": fmt.Sprintf("Invalid request: %v", err)})
+		}
+		if body.Timestamp == 0 {
+			return respond(400, map[string]string{"error": "timestamp is required"})
+		}
+		if err := setInjuryActiveStatus(username, body.Timestamp, body.Active); err != nil {
+			log.Printf("Error updating injury active status: %v", err)
+			if strings.Contains(strings.ToLower(err.Error()), strings.ToLower("ConditionalCheckFailed")) {
+				return respond(404, map[string]string{"error": "Injury not found for user"})
+			}
+			return respond(500, map[string]string{"error": fmt.Sprintf("Error updating injury: %v", err)})
+		}
+		return respond(200, map[string]string{"message": "Injury status updated"})
+
+	case method == "GET" && path == "/bodyparts":
+		bodyparts, err := getBodypartsFromDB(username)
+		if err != nil {
+			log.Printf("Error getting bodyparts: %v", err)
+			return respond(500, map[string]string{"error": fmt.Sprintf("Error fetching bodyparts: %v", err)})
+		}
+		return respond(200, bodyparts)
+
+	case method == "POST" && path == "/bodyparts":
+		var body AddBodypartRequest
+		if err := json.Unmarshal([]byte(req.Body), &body); err != nil {
+			return respond(400, map[string]string{"error": fmt.Sprintf("Invalid request: %v", err)})
+		}
+		if strings.TrimSpace(body.Location) == "" {
+			return respond(400, map[string]string{"error": "location is required"})
+		}
+		if err := addBodypartToDB(username, body.Location); err != nil {
+			log.Printf("Error adding bodypart '%s': %v", body.Location, err)
+			return respond(500, map[string]string{"error": fmt.Sprintf("Error adding bodypart: %v", err)})
+		}
+		return respond(200, map[string]string{"message": fmt.Sprintf("Bodypart %s added successfully", body.Location)})
+
+	case method == "DELETE" && path == "/bodyparts":
+		var body DeleteBodypartRequest
+		if err := json.Unmarshal([]byte(req.Body), &body); err != nil {
+			return respond(400, map[string]string{"error": fmt.Sprintf("Invalid request: %v", err)})
+		}
+		if strings.TrimSpace(body.Location) == "" {
+			return respond(400, map[string]string{"error": "location is required"})
+		}
+		if err := deleteBodypartFromDB(username, body.Location); err != nil {
+			log.Printf("Error deleting bodypart '%s': %v", body.Location, err)
+			return respond(500, map[string]string{"error": fmt.Sprintf("Error deleting bodypart: %v", err)})
+		}
+		return respond(200, map[string]string{"message": fmt.Sprintf("Bodypart %s deleted successfully", body.Location)})
+
 	default:
 		log.Printf("Route not found for %s %s", method, path)
 		return respond(404, map[string]string{"error": "Route not found"})

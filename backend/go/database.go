@@ -1062,3 +1062,232 @@ func createUserWithApiKey(username string) (string, string, error) {
 
 	return username, apiKey, nil
 }
+
+// === Bodyparts (locations) ===
+func getBodypartsFromDB(username string) ([]string, error) {
+    log.Printf("getBodypartsFromDB called for username: %s", username)
+
+    var bodyparts []string
+    queryInput := &dynamodb.QueryInput{
+        TableName:              aws.String(bodypartsTableName),
+        KeyConditionExpression: aws.String("username = :username"),
+        ExpressionAttributeValues: map[string]types.AttributeValue{
+            ":username": &types.AttributeValueMemberS{Value: username},
+        },
+    }
+
+    result, err := ddbClient.Query(context.TODO(), queryInput)
+    if err != nil {
+        return nil, fmt.Errorf("failed to query DynamoDB table %s: %w", bodypartsTableName, err)
+    }
+
+    for _, itemMap := range result.Items {
+        var bp BodypartItem
+        if err = attributevalue.UnmarshalMap(itemMap, &bp); err != nil {
+            log.Printf("Warning: failed to unmarshal bodypart item: %v. Item: %v", err, itemMap)
+            continue
+        }
+        bodyparts = append(bodyparts, bp.Location)
+    }
+    sort.Strings(bodyparts)
+    return bodyparts, nil
+}
+
+func addBodypartToDB(username, location string) error {
+    item := map[string]types.AttributeValue{
+        "location": &types.AttributeValueMemberS{Value: location},
+        "username": &types.AttributeValueMemberS{Value: username},
+    }
+    _, err := ddbClient.PutItem(context.TODO(), &dynamodb.PutItemInput{
+        TableName: aws.String(bodypartsTableName),
+        Item:      item,
+    })
+    if err != nil {
+        return fmt.Errorf("failed to put bodypart %s: %w", location, err)
+    }
+    return nil
+}
+
+func deleteBodypartFromDB(username, location string) error {
+    key := map[string]types.AttributeValue{
+        "username": &types.AttributeValueMemberS{Value: username},
+        "location": &types.AttributeValueMemberS{Value: location},
+    }
+    _, err := ddbClient.DeleteItem(context.TODO(), &dynamodb.DeleteItemInput{
+        TableName: aws.String(bodypartsTableName),
+        Key:       key,
+    })
+    if err != nil {
+        return fmt.Errorf("failed to delete bodypart %s for user %s: %w", location, username, err)
+    }
+    return nil
+}
+
+// === Injuries ===
+func logInjuryToDB(username string, req InjuryRequest) error {
+    if strings.TrimSpace(req.Location) == "" {
+        return fmt.Errorf("location is required")
+    }
+    // Ensure the bodypart exists for this user before logging an injury
+    exists, err := bodypartExists(username, req.Location)
+    if err != nil {
+        return fmt.Errorf("failed to verify bodypart location: %w")
+    }
+    if !exists {
+        return fmt.Errorf("bodypart location '%s' not found for user", req.Location)
+    }
+    var ts int64
+    if req.Timestamp != nil {
+        ts = *req.Timestamp
+    } else {
+        ts = time.Now().Unix()
+    }
+    // Default active = true unless explicitly provided
+    active := true
+    if req.Active != nil {
+        active = *req.Active
+    }
+    item := InjuryItem{
+        Timestamp: ts,
+        Username:  username,
+        Location:  req.Location,
+        Details:   req.Details,
+        Active:    active,
+    }
+    av, err := attributevalue.MarshalMap(item)
+    if err != nil {
+        return fmt.Errorf("failed to marshal injury item: %w", err)
+    }
+    _, err = ddbClient.PutItem(context.TODO(), &dynamodb.PutItemInput{
+        TableName: aws.String(injuriesTableName),
+        Item:      av,
+    })
+    if err != nil {
+        return fmt.Errorf("failed to put injury item: %w", err)
+    }
+    return nil
+}
+
+func getInjuriesFromDB(username string, qp map[string]string) ([]InjuryOutputItem, error) {
+    // Build scan for this user, optional start/end filtering
+    filter := "#u = :username"
+    exprNames := map[string]string{"#u": "username"}
+    exprVals := map[string]types.AttributeValue{
+        ":username": &types.AttributeValueMemberS{Value: username},
+    }
+
+    // Optional range on timestamp
+    var startPtr, endPtr *int64
+    if startStr, ok := qp["start"]; ok && startStr != "" {
+        if v, err := strconv.ParseInt(startStr, 10, 64); err == nil {
+            startPtr = &v
+        }
+    }
+    if endStr, ok := qp["end"]; ok && endStr != "" {
+        if v, err := strconv.ParseInt(endStr, 10, 64); err == nil {
+            endPtr = &v
+        }
+    }
+    if startPtr != nil && endPtr != nil {
+        filter = filter + " AND #ts BETWEEN :start AND :end"
+        exprNames["#ts"] = "timestamp"
+        exprVals[":start"] = &types.AttributeValueMemberN{Value: strconv.FormatInt(*startPtr, 10)}
+        exprVals[":end"] = &types.AttributeValueMemberN{Value: strconv.FormatInt(*endPtr, 10)}
+    } else if startPtr != nil {
+        filter = filter + " AND #ts >= :start"
+        exprNames["#ts"] = "timestamp"
+        exprVals[":start"] = &types.AttributeValueMemberN{Value: strconv.FormatInt(*startPtr, 10)}
+    } else if endPtr != nil {
+        filter = filter + " AND #ts <= :end"
+        exprNames["#ts"] = "timestamp"
+        exprVals[":end"] = &types.AttributeValueMemberN{Value: strconv.FormatInt(*endPtr, 10)}
+    }
+
+    // Optional active-only filter
+    if v, ok := qp["activeOnly"]; ok && (v == "true" || v == "1") {
+        filter = filter + " AND #active = :true"
+        exprNames["#active"] = "active"
+        exprVals[":true"] = &types.AttributeValueMemberBOOL{Value: true}
+    }
+
+    scanInput := &dynamodb.ScanInput{
+        TableName:                 aws.String(injuriesTableName),
+        FilterExpression:          aws.String(filter),
+        ExpressionAttributeNames:  exprNames,
+        ExpressionAttributeValues: exprVals,
+    }
+
+    result, err := ddbClient.Scan(context.TODO(), scanInput)
+    if err != nil {
+        return nil, fmt.Errorf("failed to scan injuries table: %w", err)
+    }
+
+    var items []InjuryItem
+    for _, m := range result.Items {
+        var it InjuryItem
+        if err := attributevalue.UnmarshalMap(m, &it); err != nil {
+            log.Printf("Warning: failed to unmarshal injury item: %v. Item: %v", err, m)
+            continue
+        }
+        items = append(items, it)
+    }
+
+    sort.SliceStable(items, func(i, j int) bool { return items[i].Timestamp < items[j].Timestamp })
+
+    var out []InjuryOutputItem
+    for _, it := range items {
+        row := make(InjuryOutputItem)
+        row["timestamp"] = strconv.FormatInt(it.Timestamp, 10)
+        row["location"] = it.Location
+        row["active"] = strconv.FormatBool(it.Active)
+        if it.Details != nil && strings.TrimSpace(*it.Details) != "" {
+            row["details"] = *it.Details
+        }
+        out = append(out, row)
+    }
+    return out, nil
+}
+
+func setInjuryActiveStatus(username string, timestamp int64, active bool) error {
+    if timestamp == 0 {
+        return fmt.Errorf("timestamp is required")
+    }
+    key := map[string]types.AttributeValue{
+        "timestamp": &types.AttributeValueMemberN{Value: strconv.FormatInt(timestamp, 10)},
+    }
+    updateInput := &dynamodb.UpdateItemInput{
+        TableName:        aws.String(injuriesTableName),
+        Key:              key,
+        UpdateExpression: aws.String("SET #a = :active"),
+        ExpressionAttributeNames: map[string]string{
+            "#a": "active",
+            "#u": "username",
+        },
+        ExpressionAttributeValues: map[string]types.AttributeValue{
+            ":active":   &types.AttributeValueMemberBOOL{Value: active},
+            ":username": &types.AttributeValueMemberS{Value: username},
+        },
+        ConditionExpression: aws.String("#u = :username"),
+        ReturnValues:        types.ReturnValueNone,
+    }
+    _, err := ddbClient.UpdateItem(context.TODO(), updateInput)
+    if err != nil {
+        return fmt.Errorf("failed to update injury active status: %w")
+    }
+    return nil
+}
+
+func bodypartExists(username, location string) (bool, error) {
+    key := map[string]types.AttributeValue{
+        "username": &types.AttributeValueMemberS{Value: username},
+        "location": &types.AttributeValueMemberS{Value: location},
+    }
+    out, err := ddbClient.GetItem(context.TODO(), &dynamodb.GetItemInput{
+        TableName: aws.String(bodypartsTableName),
+        Key:       key,
+    })
+    if err != nil {
+        return false, fmt.Errorf("get bodypart failed: %w", err)
+    }
+    return out.Item != nil, nil
+}

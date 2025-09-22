@@ -75,7 +75,6 @@ type AnalysisItem struct {
 	Username  string `dynamodbav:"username"`
 }
 
-
 type UserItem struct {
 	Username   string  `dynamodbav:"username"`
 	ApiKey     string  `dynamodbav:"apiKey"`
@@ -92,6 +91,43 @@ type CreateUserRequest struct {
 }
 
 type CreateUserResponse struct {
-	Username string `json:"username"`
-	ApiKey   string `json:"apiKey"`
+    Username string `json:"username"`
+    ApiKey   string `json:"apiKey"`
+}
+
+// Injury APIs
+type InjuryRequest struct {
+    Timestamp *int64  `json:"timestamp,omitempty"`
+    Location  string  `json:"location"`
+    Details   *string `json:"details,omitempty"`
+    Active    *bool   `json:"active,omitempty"`
+}
+
+type InjuryItem struct {
+    Timestamp int64   `dynamodbav:"timestamp"`
+    Username  string  `dynamodbav:"username"`
+    Location  string  `dynamodbav:"location"`
+    Details   *string `dynamodbav:"details,omitempty"`
+    Active    bool    `dynamodbav:"active"`
+}
+
+type InjuryOutputItem map[string]string
+
+// Bodypart location APIs
+type AddBodypartRequest struct {
+    Location string `json:"location"`
+}
+
+type DeleteBodypartRequest struct {
+    Location string `json:"location"`
+}
+
+type BodypartItem struct {
+    Location string `dynamodbav:"location"`
+    Username string `dynamodbav:"username"`
+}
+
+type UpdateInjuryActiveRequest struct {
+    Timestamp int64 `json:"timestamp"`
+    Active    bool  `json:"active"`
 }

@@ -12,14 +12,16 @@ import (
 )
 
 var (
-	ddbClient          *dynamodb.Client
-	sqsClient          *sqs.Client
-	exercisesTableName string
-	setsTableName      string
-	weightTableName    string
-	analysesTableName  string
-	usersTableName     string
-	queueURL           string
+    ddbClient          *dynamodb.Client
+    sqsClient          *sqs.Client
+    exercisesTableName string
+    setsTableName      string
+    weightTableName    string
+    analysesTableName  string
+    usersTableName     string
+    injuriesTableName  string
+    bodypartsTableName string
+    queueURL           string
 )
 
 func init() {
@@ -46,14 +48,22 @@ func init() {
 	if analysesTableName == "" {
 		log.Fatal("ANALYSES_TABLE environment variable not set")
 	}
-	usersTableName = os.Getenv("USERS_TABLE")
-	if usersTableName == "" {
-		log.Fatal("USERS_TABLE environment variable not set")
-	}
-	queueURL = os.Getenv("QUEUE_URL")
-	if queueURL == "" {
-		log.Fatal("QUEUE_URL environment variable not set")
-	}
+    usersTableName = os.Getenv("USERS_TABLE")
+    if usersTableName == "" {
+        log.Fatal("USERS_TABLE environment variable not set")
+    }
+    injuriesTableName = os.Getenv("INJURIES_TABLE")
+    if injuriesTableName == "" {
+        log.Fatal("INJURIES_TABLE environment variable not set")
+    }
+    bodypartsTableName = os.Getenv("BODYPARTS_TABLE")
+    if bodypartsTableName == "" {
+        log.Fatal("BODYPARTS_TABLE environment variable not set")
+    }
+    queueURL = os.Getenv("QUEUE_URL")
+    if queueURL == "" {
+        log.Fatal("QUEUE_URL environment variable not set")
+    }
 }
 
 

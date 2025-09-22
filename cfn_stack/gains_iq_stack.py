@@ -111,6 +111,29 @@ class GainsIQStack(Stack):
                                             name="timestamp", type=dynamodb.AttributeType.NUMBER),
                                         billing_mode=dynamodb.BillingMode.PAY_PER_REQUEST
                                         )
+
+        # Injuries table: timestamp key and username GSI for per-user queries
+        injuries_table = dynamodb.Table(self, f"InjuriesTable{suffix}",
+                                        partition_key=dynamodb.Attribute(
+                                            name="timestamp", type=dynamodb.AttributeType.NUMBER),
+                                        billing_mode=dynamodb.BillingMode.PAY_PER_REQUEST,
+                                        point_in_time_recovery=True
+                                        )
+        injuries_table.add_global_secondary_index(
+            index_name="UsernameInjuryIndex",
+            partition_key=dynamodb.Attribute(name="username", type=dynamodb.AttributeType.STRING),
+            sort_key=dynamodb.Attribute(name="timestamp", type=dynamodb.AttributeType.NUMBER),
+            projection_type=dynamodb.ProjectionType.ALL
+        )
+
+        # Bodyparts table: per-user locations (username PK, location SK)
+        bodyparts_table = dynamodb.Table(self, f"BodypartsTable{suffix}",
+                                         partition_key=dynamodb.Attribute(
+                                             name="username", type=dynamodb.AttributeType.STRING),
+                                         sort_key=dynamodb.Attribute(
+                                             name="location", type=dynamodb.AttributeType.STRING),
+                                         billing_mode=dynamodb.BillingMode.PAY_PER_REQUEST
+                                         )
         
         # Add GSI for user-based analysis queries
         analyses_table.add_global_secondary_index(
@@ -192,6 +215,8 @@ class GainsIQStack(Stack):
                                                     'SETS_TABLE': sets_table.table_name,
                                                     'WEIGHT_TABLE': weight_table.table_name,
                                                     'USERS_TABLE': users_table.table_name,
+                                                    'INJURIES_TABLE': injuries_table.table_name,
+                                                    'BODYPARTS_TABLE': bodyparts_table.table_name,
                                                     'QUEUE_URL': processing_lambda_trigger_queue.queue_url
                                                 })
         
@@ -226,60 +251,11 @@ class GainsIQStack(Stack):
             stage=api.deployment_stage
         )
 
-        # Define all routes explicitly
-        # User creation (no auth required)
-        users = api.root.add_resource("users")
-        create_user = users.add_resource("create")
-        create_user.add_method("POST", apigateway.LambdaIntegration(backend_lambda, proxy=True))
-
-        # Exercises endpoints
-        exercises = api.root.add_resource("exercises")
-        exercises.add_method("GET", apigateway.LambdaIntegration(backend_lambda, proxy=True))
-        exercises.add_method("POST", apigateway.LambdaIntegration(backend_lambda, proxy=True))
-        exercises.add_method("DELETE", apigateway.LambdaIntegration(backend_lambda, proxy=True))
-
-        # Sets endpoints
-        sets = api.root.add_resource("sets")
-        sets.add_method("GET", apigateway.LambdaIntegration(backend_lambda, proxy=True))
-        sets.add_method("DELETE", apigateway.LambdaIntegration(backend_lambda, proxy=True))
-
-        sets_log = sets.add_resource("log")
-        sets_log.add_method("POST", apigateway.LambdaIntegration(backend_lambda, proxy=True))
-
-        sets_batch = sets.add_resource("batch")
-        sets_batch.add_method("POST", apigateway.LambdaIntegration(backend_lambda, proxy=True))
-
-        sets_pop = sets.add_resource("pop")
-        sets_pop.add_method("POST", apigateway.LambdaIntegration(backend_lambda, proxy=True))
-
-        sets_last_month = sets.add_resource("last_month")
-        sets_last_month.add_method("GET", apigateway.LambdaIntegration(backend_lambda, proxy=True))
-
-        sets_edit = sets.add_resource("edit")
-        sets_edit.add_method("PUT", apigateway.LambdaIntegration(backend_lambda, proxy=True))
-
-        sets_by_exercise = sets.add_resource("by_exercise")
-        sets_by_exercise.add_method("GET", apigateway.LambdaIntegration(backend_lambda, proxy=True))
-
-        # Weight endpoints
-        weight = api.root.add_resource("weight")
-        weight.add_method("GET", apigateway.LambdaIntegration(backend_lambda, proxy=True))
-        weight.add_method("POST", apigateway.LambdaIntegration(backend_lambda, proxy=True))
-        weight.add_method("DELETE", apigateway.LambdaIntegration(backend_lambda, proxy=True))
-
-        weight_trend = weight.add_resource("trend")
-        weight_trend.add_method("GET", apigateway.LambdaIntegration(backend_lambda, proxy=True))
-
-        # Analysis endpoints
-        analysis = api.root.add_resource("analysis")
-        analysis.add_method("GET", apigateway.LambdaIntegration(backend_lambda, proxy=True))
-        analysis.add_method("POST", apigateway.LambdaIntegration(backend_lambda, proxy=True))
-
-        # Analytics endpoints
-        analytics = api.root.add_resource("analytics")
-        analytics_volume = analytics.add_resource("volume")
-        analytics_bodypart = analytics_volume.add_resource("bodypart")
-        analytics_bodypart.add_method("GET", apigateway.LambdaIntegration(backend_lambda, proxy=True))
+        # Single ANY proxy to minimize Lambda resource policy size
+        any_integration = apigateway.LambdaIntegration(backend_lambda, proxy=True)
+        api.root.add_method("ANY", any_integration)
+        proxy_resource = api.root.add_resource("{proxy+}")
+        proxy_resource.add_method("ANY", any_integration)
 
         monthly_rule = events.Rule(self, f"GainsIQMonthlyRule{suffix}",
                                    schedule=events.Schedule.cron(minute="0", hour="0", day="1", month="*", year="*"))
@@ -295,7 +271,7 @@ class GainsIQStack(Stack):
             point_in_time_recovery=True
         )
 
-        # Add DynamoDB permissions for all tables to the Lambda role
+        # Add broad DynamoDB permissions (simplified to keep policy size small)
         lambda_role.add_to_policy(iam.PolicyStatement(
             effect=iam.Effect.ALLOW,
             actions=[
@@ -309,19 +285,7 @@ class GainsIQStack(Stack):
                 "dynamodb:DeleteItem",
                 "dynamodb:TransactWriteItems"
             ],
-            resources=[
-                exercises_table.table_arn,
-                sets_table.table_arn,
-                weight_table.table_arn,
-                analyses_table.table_arn,
-                users_table.table_arn,
-                anomalies_table.table_arn,
-                # Add permissions for all GSIs
-                f"{exercises_table.table_arn}/index/*",
-                f"{sets_table.table_arn}/index/*",
-                f"{weight_table.table_arn}/index/*",
-                f"{analyses_table.table_arn}/index/*"
-            ]
+            resources=["*"]
         ))
 
         anomaly_detection_lambda = _lambda.Function(self, f"AnomalyDetectionLambda{suffix}",
