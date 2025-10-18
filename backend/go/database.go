@@ -1147,12 +1147,17 @@ func logInjuryToDB(username string, req InjuryRequest) error {
     if req.Active != nil {
         active = *req.Active
     }
+    var periods []ActivePeriod
+    if active {
+        periods = []ActivePeriod{{Start: ts}}
+    }
     item := InjuryItem{
         Timestamp: ts,
         Username:  username,
         Location:  req.Location,
         Details:   req.Details,
         Active:    active,
+        ActivePeriods: periods,
     }
     av, err := attributevalue.MarshalMap(item)
     if err != nil {
@@ -1252,25 +1257,60 @@ func setInjuryActiveStatus(username string, timestamp int64, active bool) error 
     if timestamp == 0 {
         return fmt.Errorf("timestamp is required")
     }
-    key := map[string]types.AttributeValue{
-        "timestamp": &types.AttributeValueMemberN{Value: strconv.FormatInt(timestamp, 10)},
+    // Load item to update periods
+    getOut, err := ddbClient.GetItem(context.TODO(), &dynamodb.GetItemInput{
+        TableName: aws.String(injuriesTableName),
+        Key: map[string]types.AttributeValue{
+            "timestamp": &types.AttributeValueMemberN{Value: strconv.FormatInt(timestamp, 10)},
+        },
+    })
+    if err != nil || getOut.Item == nil {
+        return fmt.Errorf("failed to load injury for update")
     }
-    updateInput := &dynamodb.UpdateItemInput{
-        TableName:        aws.String(injuriesTableName),
-        Key:              key,
-        UpdateExpression: aws.String("SET #a = :active"),
+    var item InjuryItem
+    if err := attributevalue.UnmarshalMap(getOut.Item, &item); err != nil {
+        return fmt.Errorf("failed to unmarshal injury item")
+    }
+    if item.Username != username {
+        return fmt.Errorf("not found")
+    }
+
+    now := time.Now().Unix()
+    hadOpen := false
+    if len(item.ActivePeriods) > 0 {
+        last := &item.ActivePeriods[len(item.ActivePeriods)-1]
+        if last.End == nil {
+            hadOpen = true
+        }
+    }
+
+    if active {
+        if !hadOpen {
+            item.ActivePeriods = append(item.ActivePeriods, ActivePeriod{Start: now})
+        }
+    } else {
+        if hadOpen {
+            last := &item.ActivePeriods[len(item.ActivePeriods)-1]
+            last.End = &now
+        }
+    }
+    item.Active = active
+
+    av, err := attributevalue.MarshalMap(item)
+    if err != nil {
+        return fmt.Errorf("failed to marshal updated injury")
+    }
+    _, err = ddbClient.PutItem(context.TODO(), &dynamodb.PutItemInput{
+        TableName:           aws.String(injuriesTableName),
+        Item:                av,
+        ConditionExpression: aws.String("#u = :username"),
         ExpressionAttributeNames: map[string]string{
-            "#a": "active",
             "#u": "username",
         },
         ExpressionAttributeValues: map[string]types.AttributeValue{
-            ":active":   &types.AttributeValueMemberBOOL{Value: active},
             ":username": &types.AttributeValueMemberS{Value: username},
         },
-        ConditionExpression: aws.String("#u = :username"),
-        ReturnValues:        types.ReturnValueNone,
-    }
-    _, err := ddbClient.UpdateItem(context.TODO(), updateInput)
+    })
     if err != nil {
         return fmt.Errorf("failed to update injury active status: %w")
     }

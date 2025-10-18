@@ -109,6 +109,7 @@ type InjuryItem struct {
     Location  string  `dynamodbav:"location"`
     Details   *string `dynamodbav:"details,omitempty"`
     Active    bool    `dynamodbav:"active"`
+    ActivePeriods []ActivePeriod `dynamodbav:"activePeriods,omitempty"`
 }
 
 type InjuryOutputItem map[string]string
@@ -130,4 +131,9 @@ type BodypartItem struct {
 type UpdateInjuryActiveRequest struct {
     Timestamp int64 `json:"timestamp"`
     Active    bool  `json:"active"`
+}
+
+type ActivePeriod struct {
+    Start int64  `dynamodbav:"start" json:"start"`
+    End   *int64 `dynamodbav:"end,omitempty" json:"end,omitempty"`
 }

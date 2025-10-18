@@ -42,3 +42,4 @@ cfn_stack/api_keys.json
 
 test_login_and_exercises.sh
 backend/migration_script.py
+scripts/*
