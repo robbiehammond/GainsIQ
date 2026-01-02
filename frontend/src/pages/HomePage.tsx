@@ -19,13 +19,11 @@ const defaultRepOptions = ['16 or above', '14', '12', '10', '8', '6']
 export const HomePage: React.FC<Props> = ({ config, apiKey, onLogout }) => {
   const client = useMemo(() => new GainsIQApiClient(config.apiBaseUrl, apiKey), [config.apiBaseUrl, apiKey])
 
-  // Preferences
   const [phase, setPhase] = useState<Phase>(() => (localStorage.getItem('gainsiq.phase') as Phase) || 'bulking')
   const [unit, setUnit] = useState<Unit>(() => (localStorage.getItem('gainsiq.unit') as Unit) || 'lbs')
   const [customTime, setCustomTime] = useState<boolean>(false)
   const [customDatetime, setCustomDatetime] = useState<string>('') // yyyy-MM-ddTHH:mm
 
-  // Data / form state
   const [exercises, setExercises] = useState<string[]>([])
   const [searchText, setSearchText] = useState('')
   const [selectedExercise, setSelectedExercise] = useState<string>(() => localStorage.getItem('gainsiq.selectedExercise') || '')

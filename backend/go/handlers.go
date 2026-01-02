@@ -277,17 +277,6 @@ func handler(ctx context.Context, req events.APIGatewayProxyRequest) (events.API
 		}
 		return respond(200, analysisData)
 
-	case method == "POST" && path == "/analysis":
-		messageID, err := pingProcessingLambdaViaSQS()
-		if err != nil {
-			log.Printf("Error pinging processing lambda via SQS: %v", err)
-			return respond(500, map[string]string{"error": fmt.Sprintf("Failed to send message to SQS queue: %v", err)})
-		}
-		if messageID == "" && err == nil {
-			return respond(200, map[string]string{"message": "Message sent, but no MessageId returned"})
-		}
-		return respond(200, map[string]string{"message": fmt.Sprintf("Message sent! ID: %s", messageID)})
-
 	case method == "GET" && path == "/injury":
 		// Optional: allow start/end filtering via query, but default to all
 		injuries, err := getInjuriesFromDB(username, req.QueryStringParameters)
