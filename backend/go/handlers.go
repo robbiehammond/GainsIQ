@@ -15,7 +15,6 @@ func handler(ctx context.Context, req events.APIGatewayProxyRequest) (events.API
 	path := req.Path
 	method := req.HTTPMethod
 
-	// Add comprehensive logging at the start of every request
 	log.Printf("=== INCOMING REQUEST ===")
 	log.Printf("Method: %s, Path: %s", method, path)
 	log.Printf("Headers: %+v", req.Headers)
@@ -31,7 +30,7 @@ func handler(ctx context.Context, req events.APIGatewayProxyRequest) (events.API
 	// Extract API key from Authorization header
 	authHeader := req.Headers["Authorization"]
 	if authHeader == "" {
-		authHeader = req.Headers["authorization"] 
+		authHeader = req.Headers["authorization"]
 	}
 
 	log.Printf("Authorization header: %s", authHeader)
@@ -41,21 +40,21 @@ func handler(ctx context.Context, req events.APIGatewayProxyRequest) (events.API
 		return respond(401, map[string]string{"error": "Unauthorized: No Authorization header"})
 	}
 
-    log.Printf("Calling authenticateRequest...")
-    username, err := authenticateRequest(authHeader)
-    if err != nil {
-        log.Printf("Authentication failed: %v", err)
-        return respond(401, map[string]string{"error": fmt.Sprintf("Unauthorized: %v", err)})
-    }
+	log.Printf("Calling authenticateRequest...")
+	username, err := authenticateRequest(authHeader)
+	if err != nil {
+		log.Printf("Authentication failed: %v", err)
+		return respond(401, map[string]string{"error": fmt.Sprintf("Unauthorized: %v", err)})
+	}
 
-    log.Printf("Authentication successful for user: %s", username)
-    log.Printf("Proceeding to route handler for %s %s", req.HTTPMethod, req.Path)
+	log.Printf("Authentication successful for user: %s", username)
+	log.Printf("Proceeding to route handler for %s %s", req.HTTPMethod, req.Path)
 
 	switch {
 	// === Exercises ===
-    case method == "GET" && path == "/exercises":
-        log.Printf("Handling GET /exercises for user: %s", username)
-        exercisesList, err := getExercisesFromDB(username)
+	case method == "GET" && path == "/exercises":
+		log.Printf("Handling GET /exercises for user: %s", username)
+		exercisesList, err := getExercisesFromDB(username)
 		if err != nil {
 			log.Printf("Error getting exercises from DB: %v", err)
 			return respond(500, map[string]string{"error": fmt.Sprintf("Error fetching exercises: %v", err)})
@@ -71,7 +70,7 @@ func handler(ctx context.Context, req events.APIGatewayProxyRequest) (events.API
 		if body.ExerciseName == "" {
 			return respond(400, map[string]string{"error": "exercise_name is required"})
 		}
-        if err := addExerciseToDB(username, body.ExerciseName); err != nil {
+		if err := addExerciseToDB(username, body.ExerciseName); err != nil {
 			log.Printf("Error adding exercise '%s': %v", body.ExerciseName, err)
 			return respond(500, map[string]string{"error": fmt.Sprintf("Error adding exercise: %v", err)})
 		}
@@ -97,7 +96,7 @@ func handler(ctx context.Context, req events.APIGatewayProxyRequest) (events.API
 		if err := json.Unmarshal([]byte(req.Body), &body); err != nil {
 			return respond(400, map[string]string{"error": fmt.Sprintf("Invalid request: %v", err)})
 		}
-        if err := logSetToDB(username, body); err != nil {
+		if err := logSetToDB(username, body); err != nil {
 			log.Printf("Error logging set for exercise '%s': %v", body.Exercise, err)
 			return respond(500, map[string]string{"error": fmt.Sprintf("Error logging set: %v", err)})
 		}
@@ -111,7 +110,7 @@ func handler(ctx context.Context, req events.APIGatewayProxyRequest) (events.API
 		if len(body.Sets) == 0 {
 			return respond(400, map[string]string{"error": "No sets provided in batch request"})
 		}
-        if err := batchLogSetsToDB(username, body.Sets); err != nil {
+		if err := batchLogSetsToDB(username, body.Sets); err != nil {
 			log.Printf("Error batch logging %d sets: %v", len(body.Sets), err)
 			return respond(500, map[string]string{"error": fmt.Sprintf("Error batch logging sets: %v", err)})
 		}
@@ -224,44 +223,44 @@ func handler(ctx context.Context, req events.APIGatewayProxyRequest) (events.API
 		if err := json.Unmarshal([]byte(req.Body), &body); err != nil {
 			return respond(400, map[string]string{"error": fmt.Sprintf("Invalid request: %v", err)})
 		}
-        if err := logWeightToDB(username, body.Weight); err != nil {
+		if err := logWeightToDB(username, body.Weight); err != nil {
 			log.Printf("Error logging weight %f: %v", body.Weight, err)
 			return respond(500, map[string]string{"error": fmt.Sprintf("Error logging weight: %v", err)})
 		}
 		return respond(200, map[string]string{"message": "Weight logged successfully"})
 
-    case method == "GET" && path == "/weight":
-        weightsList, err := getWeightsFromDB(username)
-        if err != nil {
-            log.Printf("Error getting weights: %v", err)
-            return respond(500, map[string]string{"error": fmt.Sprintf("Error fetching weights: %v", err)})
-        }
-        return respond(200, weightsList)
+	case method == "GET" && path == "/weight":
+		weightsList, err := getWeightsFromDB(username)
+		if err != nil {
+			log.Printf("Error getting weights: %v", err)
+			return respond(500, map[string]string{"error": fmt.Sprintf("Error fetching weights: %v", err)})
+		}
+		return respond(200, weightsList)
 
-    case method == "DELETE" && path == "/weight":
-        deleted, err := deleteMostRecentWeightFromDB(username)
-        if err != nil {
-            log.Printf("Error deleting most recent weight: %v", err)
-            if strings.Contains(err.Error(), "no valid weight entry found") || strings.Contains(err.Error(), "no weight found to delete") {
-                return respond(404, map[string]string{"error": "No weight found to delete"})
-            }
-            return respond(500, map[string]string{"error": fmt.Sprintf("Error deleting most recent weight: %v", err)})
-        }
-        if !deleted {
-            return respond(404, map[string]string{"error": "No weight found to delete"})
-        }
-        return respond(200, map[string]string{"message": "Most recent weight deleted successfully"})
+	case method == "DELETE" && path == "/weight":
+		deleted, err := deleteMostRecentWeightFromDB(username)
+		if err != nil {
+			log.Printf("Error deleting most recent weight: %v", err)
+			if strings.Contains(err.Error(), "no valid weight entry found") || strings.Contains(err.Error(), "no weight found to delete") {
+				return respond(404, map[string]string{"error": "No weight found to delete"})
+			}
+			return respond(500, map[string]string{"error": fmt.Sprintf("Error deleting most recent weight: %v", err)})
+		}
+		if !deleted {
+			return respond(404, map[string]string{"error": "No weight found to delete"})
+		}
+		return respond(200, map[string]string{"message": "Most recent weight deleted successfully"})
 
-    case method == "GET" && path == "/weight/trend":
-        trend, err := calculateWeightTrend(username)
-        if err != nil {
-            log.Printf("Error calculating weight trend: %v", err)
-            if strings.Contains(err.Error(), "insufficient data points") {
-                return respond(400, map[string]string{"error": "Insufficient data points for trend calculation (need at least 2 weights in the last 2 weeks)"})
-            }
-            return respond(500, map[string]string{"error": fmt.Sprintf("Error calculating weight trend: %v", err)})
-        }
-        return respond(200, trend)
+	case method == "GET" && path == "/weight/trend":
+		trend, err := calculateWeightTrend(username)
+		if err != nil {
+			log.Printf("Error calculating weight trend: %v", err)
+			if strings.Contains(err.Error(), "insufficient data points") {
+				return respond(400, map[string]string{"error": "Insufficient data points for trend calculation (need at least 2 weights in the last 2 weeks)"})
+			}
+			return respond(500, map[string]string{"error": fmt.Sprintf("Error calculating weight trend: %v", err)})
+		}
+		return respond(200, trend)
 
 	// === Analysis ===
 	case method == "GET" && path == "/analysis":
@@ -300,7 +299,9 @@ func handler(ctx context.Context, req events.APIGatewayProxyRequest) (events.API
 
 	case method == "GET" && path == "/injury/active":
 		qp := map[string]string{}
-		for k, v := range req.QueryStringParameters { qp[k] = v }
+		for k, v := range req.QueryStringParameters {
+			qp[k] = v
+		}
 		qp["activeOnly"] = "true"
 		injuries, err := getInjuriesFromDB(username, qp)
 		if err != nil {

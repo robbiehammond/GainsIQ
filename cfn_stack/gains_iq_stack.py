@@ -19,7 +19,8 @@ from aws_cdk import (
     aws_cloudfront as cloudfront,
     aws_cloudfront_origins as origins,
     aws_stepfunctions as sfn,
-    aws_stepfunctions_tasks as tasks
+    aws_stepfunctions_tasks as tasks,
+    CfnOutput
 )
 import json
 from constructs import Construct
@@ -153,13 +154,6 @@ class GainsIQStack(Stack):
         data_bucket = s3.Bucket(self, f"GainsIQDataBucket{suffix}",
                                 versioned=True)
 
-        processing_lambda_trigger_queue = sqs.Queue(
-            self, 
-            f"ProcessingLambdaTriggerQueue{suffix}",
-            queue_name=f"AnalysisRequestsQueue{suffix}",
-            visibility_timeout=Duration.seconds(300)
-        )
-
         # IAM Role
         lambda_role = iam.Role(self, f"GainsIQLambdaRole{suffix}",
                                assumed_by=iam.ServicePrincipal("lambda.amazonaws.com"),
@@ -167,40 +161,9 @@ class GainsIQStack(Stack):
                                    iam.ManagedPolicy.from_aws_managed_policy_name("service-role/AWSLambdaBasicExecutionRole")
                                ])
 
-        # DynamoDB permissions will be added after all tables are created
-
-        lambda_role.add_to_policy(iam.PolicyStatement(
-            effect=iam.Effect.ALLOW,
-            actions=[
-                "sqs:SendMessage",
-                "sqs:SendMessageBatch"
-            ],
-            resources=[processing_lambda_trigger_queue.queue_arn]  
-        ))
-
 
         data_bucket.grant_read_write(lambda_role)
 
-        processing_lambda = _lambda.Function(self, f"GainsIQProcessingLambda{suffix}",
-                                             runtime=_lambda.Runtime.PYTHON_3_9,
-                                             handler="processing_lambda.lambda_handler",
-                                             code=_lambda.Code.from_asset("backend/aux_lambdas/summary_maker"),
-                                             role=lambda_role,
-                                             timeout=Duration.minutes(5),
-                                             environment={
-                                                 'SETS_TABLE': sets_table.table_name,
-                                                 'EXERCISES_TABLE': exercises_table.table_name,
-                                                 'ANALYSES_TABLE': analyses_table.table_name,
-                                                 'S3_BUCKET_NAME': data_bucket.bucket_name,
-                                                 'OPENAI_API_KEY': openai_key,  
-                                                 'IS_PREPROD': "YES" if is_preprod else "NO"
-                                             })
-
-        processing_lambda.add_event_source(
-            lambda_event_sources.SqsEventSource(
-                processing_lambda_trigger_queue
-            )
-        )
         # Create a new Lambda function with a different name to avoid permission accumulation
         backend_lambda = _lambda.Function(self, f"GainsIQGoBackendHandlerV2{suffix}",
                                                 function_name=f"GainsIQGoBackendHandlerV2{suffix}",
@@ -216,8 +179,7 @@ class GainsIQStack(Stack):
                                                     'WEIGHT_TABLE': weight_table.table_name,
                                                     'USERS_TABLE': users_table.table_name,
                                                     'INJURIES_TABLE': injuries_table.table_name,
-                                                    'BODYPARTS_TABLE': bodyparts_table.table_name,
-                                                    'QUEUE_URL': processing_lambda_trigger_queue.queue_url
+                                                    'BODYPARTS_TABLE': bodyparts_table.table_name
                                                 })
         
         log_group = logs.LogGroup(self, f"GainsIQApiLogs{suffix}",
@@ -257,11 +219,7 @@ class GainsIQStack(Stack):
         proxy_resource = api.root.add_resource("{proxy+}")
         proxy_resource.add_method("ANY", any_integration)
 
-        monthly_rule = events.Rule(self, f"GainsIQMonthlyRule{suffix}",
-                                   schedule=events.Schedule.cron(minute="0", hour="0", day="1", month="*", year="*"))
-
-        monthly_rule.add_target(targets.LambdaFunction(processing_lambda))
-
+        # DEPRECATED
         anomalies_table = dynamodb.Table(self, f"AnomaliesTable{suffix}",
             partition_key=dynamodb.Attribute(
                 name="anomalyId",
@@ -288,20 +246,34 @@ class GainsIQStack(Stack):
             resources=["*"]
         ))
 
-        anomaly_detection_lambda = _lambda.Function(self, f"AnomalyDetectionLambda{suffix}",
-            runtime=_lambda.Runtime.PYTHON_3_9,
-            handler="anomaly_detection_lambda.lambda_handler", 
-            code=_lambda.Code.from_asset("backend/aux_lambdas/anomaly_detector"),  
-            role=lambda_role,
-            timeout=Duration.minutes(5),
-            environment={
-                "SETS_TABLE": sets_table.table_name,
-                "ANOMALIES_TABLE": anomalies_table.table_name
-            }
+        website_bucket = s3.Bucket(
+            self,
+            f"GainsIQWebsiteBucket{suffix}",
+            website_index_document="index.html",
+            website_error_document="index.html",
+            public_read_access=True,
+            block_public_access=s3.BlockPublicAccess.BLOCK_ACLS,
+            removal_policy=RemovalPolicy.DESTROY if is_preprod else RemovalPolicy.RETAIN,
+            auto_delete_objects=is_preprod,
         )
 
-        daily_anomaly_rule = events.Rule(self, f"GainsIQDailyAnomalyRule{suffix}",
-            schedule=events.Schedule.rate(Duration.hours(24)) 
+        # Build a small runtime config.json for the frontend with the API base URL
+        runtime_config = s3deploy.Source.data(
+            "config.json",
+            json.dumps({
+                "apiBaseUrl": api.url,  # e.g., https://xxxx.execute-api.us-west-2.amazonaws.com/prod/
+                "env": env_name,
+            })
         )
 
-        daily_anomaly_rule.add_target(targets.LambdaFunction(anomaly_detection_lambda))
+        s3deploy.BucketDeployment(
+            self,
+            f"GainsIQWebsiteDeploy{suffix}",
+            destination_bucket=website_bucket,
+            sources=[
+                s3deploy.Source.asset("frontend/dist"),
+                runtime_config,
+            ],
+        )
+        CfnOutput(self, f"WebsiteURL{suffix}", value=website_bucket.bucket_website_url)
+        CfnOutput(self, f"ApiURL{suffix}", value=api.url)
