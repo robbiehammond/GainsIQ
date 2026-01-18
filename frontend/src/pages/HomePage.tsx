@@ -13,8 +13,7 @@ type Phase = 'cutting' | 'bulking'
 type Unit = 'lbs' | 'kg'
 
 const KG_TO_LB = 2.20462
-
-const defaultRepOptions = ['16 or above', '14', '12', '10', '8', '6']
+const defaultRepOptions: string[] = Array.from({length: 20}, (_, i) => (6 + i)).map(String)
 
 export const HomePage: React.FC<Props> = ({ config, apiKey, onLogout }) => {
   const client = useMemo(() => new GainsIQApiClient(config.apiBaseUrl, apiKey), [config.apiBaseUrl, apiKey])

@@ -168,6 +168,7 @@ class GainsIQStack(Stack):
         backend_lambda = _lambda.Function(self, f"GainsIQGoBackendHandlerV2{suffix}",
                                                 function_name=f"GainsIQGoBackendHandlerV2{suffix}",
                                                 runtime=_lambda.Runtime.PROVIDED_AL2023,
+                                                architecture=_lambda.Architecture.ARM_64,
                                                 handler="main",
                                                 code=_lambda.Code.from_asset("./backend/go"),
                                                 role=lambda_role,
